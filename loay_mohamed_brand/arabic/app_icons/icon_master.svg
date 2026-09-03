@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<rect width="1024" height="1024" rx="230.4" fill="#0F1B3D"/>
+<g transform="translate(798.72, 307.2)">
+  <rect x="-40.96" y="-12.288" width="81.92" height="24.576" rx="8.192" fill="#2DD4BF"/>
+  <rect x="-12.288" y="-40.96" width="24.576" height="81.92" rx="8.192" fill="#2DD4BF"/>
+</g>
+<g transform="translate(675.84, 230.4)">
+  <rect x="-25.6" y="-8.192" width="51.2" height="16.384" rx="5.12" fill="#60A5FA"/>
+  <rect x="-8.192" y="-25.6" width="16.384" height="51.2" rx="5.12" fill="#60A5FA"/>
+</g>
+<text x="512.0" y="675.84" text-anchor="middle" font-family="Noto Kufi Arabic" font-size="409.6" font-weight="800" fill="#FFFFFF">لم</text>
+<path d="M 0 0" fill="none"/>
+<path d="M 307.2 829.44 Q 512.0 931.84 716.8 829.44" fill="none" stroke="#FFFFFF" stroke-width="24.576" stroke-linecap="round"/>
+</svg>

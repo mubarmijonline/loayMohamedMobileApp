@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<rect width="1024" height="1024" rx="230.4" fill="#0F1B3D"/>
+<g transform="translate(245.76, 307.2)">
+  <rect x="-40.96" y="-12.288" width="81.92" height="24.576" rx="8.192" fill="#2DD4BF"/>
+  <rect x="-12.288" y="-40.96" width="24.576" height="81.92" rx="8.192" fill="#2DD4BF"/>
+</g>
+<g transform="translate(368.64, 240.64)">
+  <rect x="-25.6" y="-8.192" width="51.2" height="16.384" rx="5.12" fill="#60A5FA"/>
+  <rect x="-8.192" y="-25.6" width="16.384" height="51.2" rx="5.12" fill="#60A5FA"/>
+</g>
+<text x="512.0" y="727.04" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="563.2" font-weight="800" fill="#FFFFFF" letter-spacing="-20.48">L</text>
+<path d="M 348.16 839.68 Q 512.0 942.08 675.84 839.68" fill="none" stroke="#FFFFFF" stroke-width="22.528" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,36 @@
+{
+  "primary": {
+    "navy": "#0F1B3D",
+    "white": "#FFFFFF"
+  },
+  "accent": {
+    "teal": "#2DD4BF",
+    "sky": "#60A5FA",
+    "cyan_alt": "#06B6D4"
+  },
+  "neutral": {
+    "light_bg": "#F8FAFC",
+    "border": "#E2E8F0",
+    "muted": "#94A3B8"
+  },
+  "typography": {
+    "latin": {
+      "family": "Plus Jakarta Sans",
+      "weights": [
+        400,
+        500,
+        700,
+        800
+      ]
+    },
+    "arabic": {
+      "family": "Noto Kufi Arabic",
+      "weights": [
+        400,
+        500,
+        700,
+        800
+      ]
+    }
+  }
+}

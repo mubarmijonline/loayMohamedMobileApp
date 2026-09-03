@@ -1,0 +1,188 @@
+================================================================================
+LOAY MOHAMED - STUDENT MOBILE API (Flutter)
+Base URL: https://<host>/api/v1
+Auth header: Authorization: Bearer <access_token>
+Response envelope:
+  Success: { "success": true,  "data": ... }
+  Error:   { "success": false, "error": { "code": "...", "message": "..." } }
+================================================================================
+
+================================================================================
+AUTH
+================================================================================
+
+POST   /api/v1/auth/register
+  Body (JSON): { full_name, email, phone, country_code?, password,
+                 parent_phone?, parent_country_code?, school?, grade? }
+  200: { user, access_token, refresh_token }
+
+POST   /api/v1/auth/login
+  Body (JSON): { identifier, password }      # identifier = email OR phone
+  200: { user, access_token, refresh_token }
+
+POST   /api/v1/auth/refresh
+  Body (JSON): { refresh_token }
+  200: { access_token }
+
+POST   /api/v1/auth/logout
+  Auth required.  200: { success: true }
+
+GET    /api/v1/auth/me
+  Auth required.  200: { user }
+
+================================================================================
+STUDENT - DASHBOARD / SUBJECTS / ENROLLMENT
+================================================================================
+
+GET    /api/v1/student/dashboard
+  Auth.  200: { stats, recent_content, upcoming_assignments, announcements }
+
+GET    /api/v1/student/subjects
+  Auth.  200: [ { _id, title, description, level, syllabus, price,
+                  thumbnail_url, is_active, created_at } ]
+
+GET    /api/v1/student/subjects/<subject_id>
+  Auth.  200: { subject }
+
+GET    /api/v1/student/subjects/<subject_id>/lessons
+  Auth + must be enrolled.
+  200: [ { _id, subject_id, title, order_index, summary, duration_seconds } ]
+
+POST   /api/v1/student/enrollment-requests
+  Auth.  Body (JSON): { subject_id }
+  201: { created: true }
+  Errors: 400 missing_subject, 409 already_pending, 409 already_enrolled
+
+GET    /api/v1/student/enrollments
+  Auth.  200: [ { _id, subject_id, subject_title, status, enrolled_at } ]
+
+GET    /api/v1/student/progress/<subject_id>
+  Auth.  200: { total_watched_seconds, completion_percent }
+
+================================================================================
+STUDENT - CONTENT (videos / handouts)
+================================================================================
+
+GET    /api/v1/student/content
+  Auth.  200: [ { _id, title, type, class_id, class_name, description,
+                  duration_seconds, watched, created_at } ]
+
+GET    /api/v1/student/content/<content_id>
+  Auth.  200: { _id, title, type, description, duration_seconds, embed_url }
+
+GET    /api/v1/student/content/<content_id>/embed
+  Auth.  200: { embed_url, duration_seconds }
+
+GET    /api/v1/student/content/<content_id>/resume
+  Auth.  200: { resume_from, total_watched, completion_percent }
+
+POST   /api/v1/student/watch-events
+  Auth.  Body (JSON): { subject_id, lesson_id?, content_id?,
+                        watched_seconds_delta (0..60), tab_visible, playback_rate }
+  200: { delta_recorded }
+
+POST   /api/v1/student/watch-heartbeat
+  Auth.  Body (JSON): { content_id, class_id?, delta (0..60),
+                        current_position, tab_visible }
+  200: { total_watched }
+
+================================================================================
+STUDENT - ASSIGNMENTS & QUIZZES
+(same collection; type = "homework" | "quiz")
+================================================================================
+
+GET    /api/v1/student/assignments?type=homework|quiz&status=pending|overdue|submitted|graded
+  Auth.  200: [ { _id, title, type, description, class_id, class_name,
+                  due_at, created_at, submission_status, submission, attachment } ]
+
+GET    /api/v1/student/quizzes
+  Auth.  Shortcut for ?type=quiz.
+
+GET    /api/v1/student/assignments/<assignment_id>
+  Auth.  200:
+  {
+    "assignment": { ..., attachment, attachment_url, attachment_filename,
+                    attachment_mime, attachment_size, class_name },
+    "submission": { ..., file_url } | null
+  }
+
+GET    /api/v1/student/assignments/<assignment_id>/attachment
+  Auth.  Returns the attachment binary (Content-Disposition: attachment).
+
+POST   /api/v1/student/assignments/<assignment_id>/submit
+  Auth.  Two encodings supported:
+
+  A) multipart/form-data:
+       text_content = "..."          (optional)
+       answers      = "<JSON-string>" (optional, for quizzes)
+       attachment   = <file>          (optional)
+
+  B) application/json:
+       { "text_content": "...", "answers": [ { "qid":"q1","choice":"B" }, ... ] }
+
+  At least one of text_content / answers / attachment is required.
+  201: { created: true }     (first submission)
+  200: { updated: true }     (resubmission)
+  Errors: 400 invalid_assignment, 400 invalid_answers, 400 empty_submission,
+          403 forbidden, 404 not_found, 409 already_graded
+
+================================================================================
+STUDENT - PROFILE / AVATAR
+================================================================================
+
+GET    /api/v1/student/profile
+  Auth.  200: { user }
+
+PATCH  /api/v1/student/profile
+  Auth.  Body (JSON): { name?, phone?, country_code?, parent_phone?,
+                        parent_country_code?, school?, grade? }
+  200: { user }
+
+PATCH  /api/v1/student/profile/phone
+  Auth.  Body (JSON): { phone, country_code? }
+  200: { user }
+
+POST   /api/v1/student/profile/avatar
+  Auth.  multipart/form-data:  avatar=<file>  (jpg/jpeg/png/webp, <=5MB)
+  200: { user, avatar_url }
+
+POST   /api/v1/student/profile/change-password
+  Auth.  Body (JSON): { current_password, new_password, confirm_password }
+  200: { success: true }
+
+================================================================================
+NOTIFICATIONS & ANNOUNCEMENTS
+================================================================================
+
+GET    /api/v1/announcements
+  Auth.  200: [ { _id, title, body, created_at } ]
+
+GET    /api/v1/notifications
+  Auth.  200: [ { _id, title, body, type, read, created_at } ]
+
+GET    /api/v1/notifications/latest
+  Auth.  200: { items: [...], unread_count }
+
+POST   /api/v1/notifications/mark-read
+  Auth.  Body (JSON): { notification_id }
+  200: { updated: true }
+
+POST   /api/v1/notifications/mark-all-read
+  Auth.  200: { updated_count }
+
+================================================================================
+STATIC FILE SERVING
+================================================================================
+
+GET    /uploads/<path:filename>
+  Public when USE_LOCAL_STORAGE=true. Serves submissions, avatars, thumbnails.
+
+================================================================================
+COMMON ERROR CODES
+================================================================================
+  invalid_token, token_expired, unauthorized, forbidden, not_found,
+  invalid_subject, invalid_content, invalid_assignment, invalid_answers,
+  missing_subject, missing_content, empty_submission, already_graded,
+  already_pending, already_enrolled, not_enrolled, validation_error,
+  invalid_credentials, email_taken, phone_taken, server_error
+================================================================================
