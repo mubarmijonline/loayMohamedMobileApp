@@ -1,8 +1,8 @@
-gradle-wrapper.jar
+# gradle-wrapper.jar and gradlew are committed on purpose, against the
+# Flutter template default: without them a fresh clone has no pinned
+# Gradle version and cannot build Android at all.
 /.gradle
 /captures/
-/gradlew
-/gradlew.bat
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/
