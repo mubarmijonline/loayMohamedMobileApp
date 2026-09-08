@@ -1,7 +1,7 @@
 name: loay_mohamed_elearning
 description: Loay Mohamed E-Learning — student mobile app.
 publish_to: "none"
-version: 1.0.3+4
+version: 1.0.5+7
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -62,9 +62,7 @@ dependencies:
   # Push
   onesignal_flutter: ^5.2.5
 
-  # Social auth
-  sign_in_with_apple: ^6.1.2
-  google_sign_in: ^6.2.1
+  # Crypto — used for SPKI certificate pinning (core/security).
   crypto: ^3.0.3
 
   # Misc
@@ -91,8 +89,20 @@ flutter:
   uses-material-design: true
   assets:
     - assets/env/
-    - assets/images/
     - assets/lottie/
+    # Brand images are declared individually, not as a directory. A directory
+    # entry ships whatever else lands in the folder later and hides a typo'd
+    # filename until runtime. See docs/mobile/THEME_SPEC.md §7.
+    - assets/images/loay-instructor-733.webp
+    - assets/images/loay-instructor-400.webp
+    - assets/images/loay-logo-256.webp
+    - assets/images/loay-logo-128.webp
+    # Launcher/splash sources, referenced by flutter_launcher_icons and the
+    # native launch screens rather than by Dart.
+    - assets/images/app_icon.png
+    - assets/images/app_icon_foreground.png
+    - assets/images/logo.png
+    - assets/images/splash.png
 
 flutter_launcher_icons:
   android: "ic_launcher"

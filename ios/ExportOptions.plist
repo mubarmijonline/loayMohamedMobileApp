@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Export options for an App Store submission.
+
+  Used as:
+    xcodebuild -exportArchive \
+      -archivePath build/ios/archive/Runner.xcarchive \
+      -exportOptionsPlist ios/ExportOptions.plist \
+      -exportPath build/ios/ipa \
+      -allowProvisioningUpdates
+
+  Drop -allowProvisioningUpdates to forbid Xcode from creating certificates or
+  profiles on the developer account; the export then fails cleanly if anything
+  is missing rather than provisioning it for you.
+-->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<key>teamID</key>
+	<string>2T43SNWHAM</string>
+
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<!-- Upload the obfuscation/debug symbols so App Store Connect can
+	     symbolicate crash reports. The Dart symbols in build/symbols/ are
+	     separate and must be archived by hand — see README. -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- Bitcode has been removed by Apple; leave off. -->
+	<key>uploadBitcode</key>
+	<false/>
+
+	<key>stripSwiftSymbols</key>
+	<true/>
+
+	<key>destination</key>
+	<string>export</string>
+</dict>
+</plist>

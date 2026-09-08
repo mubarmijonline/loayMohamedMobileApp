@@ -23,3 +23,11 @@ android/.idea/
 android/app/release/
 coverage/
 .DS_Store
+
+# Release signing secrets — never commit.
+android/key.properties
+
+# `build` is a symlink to a directory outside iCloud (see docs) — the trailing
+# slash in `build/` does not match a symlink, so name it without one too.
+/build
+flutter_*.log
