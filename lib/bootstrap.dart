@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'core/env/app_env.dart';
+import 'core/logging/app_logger.dart';
 import 'core/providers.dart';
 
 Future<void> bootstrap(Flavor flavor) async {
@@ -20,11 +22,35 @@ Future<void> bootstrap(Flavor flavor) async {
     HttpOverrides.global = _DevHttpOverrides();
   }
   final prefs = await SharedPreferences.getInstance();
+
+  final container = ProviderContainer(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+  );
+
+  // Arm capture protection.
+  //
+  // Deliberately NOT awaited. Android's FLAG_SECURE is already set natively in
+  // MainActivity.onCreate, before any Dart runs, so nothing here is racing the
+  // first frame. Blocking runApp on a platform-channel round trip only buys a
+  // white screen if the channel is slow or the native side is missing.
+  //
+  // The authoritative check happens later, per player, in
+  // playbackPermissionProvider — which asks the platform again rather than
+  // trusting this call.
+  unawaited(
+    container.read(screenGuardProvider).enable().then((protected) {
+      if (!protected) {
+        AppLogger.I.e(
+          'Screen protection is NOT active. Video playback will be refused. '
+          'See lib/core/security/README.md.',
+        );
+      }
+    }),
+  );
+
   runApp(
-    ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
+    UncontrolledProviderScope(
+      container: container,
       child: const LoayMohamedApp(),
     ),
   );

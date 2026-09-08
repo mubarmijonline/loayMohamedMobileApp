@@ -21,7 +21,8 @@ class ApiEnvelope<T> {
   ) {
     if (body is! Map) {
       // Backward compatibility — backend sometimes returns a raw payload.
-      return ApiEnvelope<T>(success: true, data: body == null ? null : parser(body));
+      return ApiEnvelope<T>(
+          success: true, data: body == null ? null : parser(body));
     }
     final hasEnvelope = body.containsKey('success') &&
         (body.containsKey('data') || body.containsKey('error'));
