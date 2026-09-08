@@ -248,10 +248,10 @@ class _SecureStreamPlayerState extends ConsumerState<SecureStreamPlayer>
       _repo = repo;
       final ticket = await repo.videoPlayback(_current.id);
       // DRM gate — spec section 3.1: refuse if the per-platform flag is false.
-      final drmOk =
-          Platform.isIOS ? ticket.fairplay : ticket.widevine;
+      final drmOk = Platform.isIOS ? ticket.fairplay : ticket.widevine;
       if (!drmOk) {
-        _reportSecurity(Platform.isIOS ? 'fairplay_unavailable' : 'l1_unavailable');
+        _reportSecurity(
+            Platform.isIOS ? 'fairplay_unavailable' : 'l1_unavailable');
         setState(() {
           _loading = false;
           _error = 'Playback unavailable on this device.';
@@ -330,9 +330,7 @@ class _SecureStreamPlayerState extends ConsumerState<SecureStreamPlayer>
     // Auto-advance / completion detection.
     final pos = vc.value.position.inSeconds;
     final dur = vc.value.duration.inSeconds;
-    if (!_completedReported &&
-        dur > 0 &&
-        pos / dur >= 0.9) {
+    if (!_completedReported && dur > 0 && pos / dur >= 0.9) {
       _completedReported = true;
       _flushProgress(event: 'completed');
     }
@@ -365,11 +363,11 @@ class _SecureStreamPlayerState extends ConsumerState<SecureStreamPlayer>
     final repo = _repo;
     if (repo == null) return;
     await repo.videoProgress(
-          videoId: _current.id,
-          positionSeconds: pos,
-          durationSeconds: dur,
-          event: event,
-        );
+      videoId: _current.id,
+      positionSeconds: pos,
+      durationSeconds: dur,
+      event: event,
+    );
   }
 
   // ───────────────────────── Lifecycle / token refresh ─────────────────────
@@ -400,7 +398,8 @@ class _SecureStreamPlayerState extends ConsumerState<SecureStreamPlayer>
         DateTime.now().difference(bgAt) > const Duration(minutes: 5);
     if (stale || longBackground) {
       // Re-mint and re-mount the player from the current position.
-      final startAt = _video?.value.position.inSeconds ?? _current.watchedSeconds;
+      final startAt =
+          _video?.value.position.inSeconds ?? _current.watchedSeconds;
       await _loadCurrent(startAt: startAt);
     }
   }
@@ -594,8 +593,7 @@ class _CaptureBlockedOverlay extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.shield_outlined,
-              color: Colors.white70, size: 56),
+          const Icon(Icons.shield_outlined, color: Colors.white70, size: 56),
           const SizedBox(height: 14),
           Text(
             reason,
