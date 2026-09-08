@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_spacing.dart';
 import '../models/quiz.dart';
+import '../../../../core/design/app_palette.dart';
 
 class QuizCard extends StatelessWidget {
   const QuizCard({super.key, required this.item});
@@ -12,13 +13,12 @@ class QuizCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dateLabel = item.dueDate != null
-        ? DateFormat('MMM d').format(item.dueDate!)
-        : '—';
+    final dateLabel =
+        item.dueDate != null ? DateFormat('MMM d').format(item.dueDate!) : '—';
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       elevation: 0,
-      color: Colors.white,
+      color: context.palette.surface,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Padding(
@@ -29,10 +29,9 @@ class QuizCard extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                  color: AppColors.primarySurface,
+                  color: context.palette.surfaceTinted,
                   borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.quiz_outlined,
-                  color: AppColors.primary),
+              child: const Icon(Icons.quiz_outlined, color: AppColors.primary),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -93,8 +92,8 @@ class _ScoreChip extends StatelessWidget {
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(label,
-          style: TextStyle(
-              color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
+          style:
+              TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 }

@@ -12,6 +12,7 @@ import '../../core/error/failures.dart';
 import '../../core/utils/countries.dart';
 import '../../core/utils/country_phone_field.dart';
 import '../auth/presentation/auth_controller.dart';
+import '../../core/design/app_palette.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -76,7 +77,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.watch(authControllerProvider).user;
     final theme = Theme.of(context);
     final initials = (user?.name.trim().isNotEmpty == true)
-        ? user!.name.trim().split(RegExp(r'\s+')).take(2).map((p) => p[0]).join().toUpperCase()
+        ? user!.name
+            .trim()
+            .split(RegExp(r'\s+'))
+            .take(2)
+            .map((p) => p[0])
+            .join()
+            .toUpperCase()
         : 'S';
 
     return Scaffold(
@@ -94,8 +101,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               IconButton(
                 tooltip: 'Settings',
                 icon: const Icon(Icons.settings_outlined),
-                onPressed: () =>
-                    Navigator.of(context).pushNamed('/settings'),
+                onPressed: () => Navigator.of(context).pushNamed('/settings'),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -182,16 +188,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           builder: (_) => AlertDialog(
                             title: const Text('Sign out?'),
                             content: const Text(
-                                'You will need to sign in again to continue.',),
+                              'You will need to sign in again to continue.',
+                            ),
                             actions: [
                               TextButton(
-                                  onPressed: () => Navigator.pop(_, false),
-                                  child: const Text('Cancel'),),
+                                onPressed: () => Navigator.pop(_, false),
+                                child: const Text('Cancel'),
+                              ),
                               FilledButton(
-                                  style: FilledButton.styleFrom(
-                                      backgroundColor: AppColors.danger,),
-                                  onPressed: () => Navigator.pop(_, true),
-                                  child: const Text('Sign out'),),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.danger,
+                                ),
+                                onPressed: () => Navigator.pop(_, true),
+                                child: const Text('Sign out'),
+                              ),
                             ],
                           ),
                         );
@@ -207,8 +217,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Center(
                     child: Text(
                       'Loay Mohamed E-Learning',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.45)),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -222,7 +235,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _editPhone(
-      BuildContext context, WidgetRef ref, String? current,) async {
+    BuildContext context,
+    WidgetRef ref,
+    String? current,
+  ) async {
     final controller = TextEditingController();
     Country country = kDefaultCountry;
     // Try to seed from existing E.164 phone.
@@ -257,11 +273,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx, false),
-                  child: const Text('Cancel'),),
+                onPressed: () => Navigator.pop(dialogCtx, false),
+                child: const Text('Cancel'),
+              ),
               FilledButton(
-                  onPressed: () => Navigator.pop(dialogCtx, true),
-                  child: const Text('Save'),),
+                onPressed: () => Navigator.pop(dialogCtx, true),
+                child: const Text('Save'),
+              ),
             ],
           ),
         );
@@ -314,7 +332,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
                 ),
                 child: Form(
                   key: formKey,
@@ -328,7 +349,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           height: 5,
                           margin: const EdgeInsets.only(bottom: AppSpacing.md),
                           decoration: BoxDecoration(
-                            color: AppColors.divider,
+                            color: context.palette.divider,
                             borderRadius: BorderRadius.circular(99),
                           ),
                         ),
@@ -361,7 +382,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 Text(
                                   'Pick a strong new password.',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.65),
                                   ),
                                 ),
                               ],
@@ -378,11 +402,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           labelText: 'Current password',
                           prefixIcon: const Icon(Icons.lock_clock_outlined),
                           suffixIcon: IconButton(
-                            icon: Icon(obscureCurrent
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,),
+                            icon: Icon(
+                              obscureCurrent
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
                             onPressed: () => setSheet(
-                                () => obscureCurrent = !obscureCurrent,),
+                              () => obscureCurrent = !obscureCurrent,
+                            ),
                           ),
                         ),
                         validator: (v) => (v ?? '').isEmpty
@@ -399,9 +426,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           helperText: 'At least 8 characters',
                           prefixIcon: const Icon(Icons.lock_outline_rounded),
                           suffixIcon: IconButton(
-                            icon: Icon(obscureNext
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,),
+                            icon: Icon(
+                              obscureNext
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
                             onPressed: () =>
                                 setSheet(() => obscureNext = !obscureNext),
                           ),
@@ -419,16 +448,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           labelText: 'Confirm new password',
                           prefixIcon: const Icon(Icons.lock_outline_rounded),
                           suffixIcon: IconButton(
-                            icon: Icon(obscureConfirm
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,),
+                            icon: Icon(
+                              obscureConfirm
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
                             onPressed: () => setSheet(
-                                () => obscureConfirm = !obscureConfirm,),
+                              () => obscureConfirm = !obscureConfirm,
+                            ),
                           ),
                         ),
-                        validator: (v) => v != next.text
-                            ? 'Passwords do not match'
-                            : null,
+                        validator: (v) =>
+                            v != next.text ? 'Passwords do not match' : null,
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       Row(
@@ -448,8 +479,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               onPressed: busy
                                   ? null
                                   : () async {
-                                      if (!(formKey.currentState
-                                              ?.validate() ??
+                                      if (!(formKey.currentState?.validate() ??
                                           false)) {
                                         return;
                                       }
@@ -467,7 +497,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                             .showSnackBar(
                                           const SnackBar(
                                             content: Text(
-                                                'Password changed successfully',),
+                                              'Password changed successfully',
+                                            ),
                                           ),
                                         );
                                       } catch (e) {
@@ -476,9 +507,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         ScaffoldMessenger.of(sheetCtx)
                                             .showSnackBar(
                                           SnackBar(
-                                            content: Text(e is AppFailure
-                                                ? e.message
-                                                : e.toString(),),
+                                            content: Text(
+                                              e is AppFailure
+                                                  ? e.message
+                                                  : e.toString(),
+                                            ),
                                           ),
                                         );
                                       }
@@ -493,7 +526,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       ),
                                     )
                                   : const Icon(
-                                      Icons.check_rounded, size: 18,),
+                                      Icons.check_rounded,
+                                      size: 18,
+                                    ),
                               label: Text(busy ? 'Saving…' : 'Update password'),
                             ),
                           ),
@@ -541,7 +576,11 @@ class _Header extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg, 56, AppSpacing.lg, AppSpacing.lg,),
+            AppSpacing.lg,
+            56,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -552,8 +591,9 @@ class _Header extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          width: 3,),
+                        color: Colors.white.withValues(alpha: 0.5),
+                        width: 3,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.18),
@@ -565,9 +605,8 @@ class _Header extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 44,
                       backgroundColor: Colors.white.withValues(alpha: 0.18),
-                      backgroundImage: avatarUrl.isNotEmpty
-                          ? NetworkImage(avatarUrl)
-                          : null,
+                      backgroundImage:
+                          avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
                       child: avatarUrl.isEmpty
                           ? Text(
                               initials,
@@ -597,10 +636,14 @@ class _Header extends StatelessWidget {
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,),
+                                    strokeWidth: 2.2,
+                                  ),
                                 )
-                              : const Icon(Icons.camera_alt_rounded,
-                                  size: 18, color: AppColors.primary,),
+                              : const Icon(
+                                  Icons.camera_alt_rounded,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
                         ),
                       ),
                     ),
@@ -642,25 +685,31 @@ class _InfoStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final tiles = <Widget>[];
     if (user?.grade != null) {
-      tiles.add(_InfoTile(
-        icon: Icons.school_rounded,
-        label: 'Grade',
-        value: '${user!.grade}',
-      ),);
+      tiles.add(
+        _InfoTile(
+          icon: Icons.school_rounded,
+          label: 'Grade',
+          value: '${user!.grade}',
+        ),
+      );
     }
     if ((user?.school ?? '').isNotEmpty) {
-      tiles.add(_InfoTile(
-        icon: Icons.business_rounded,
-        label: 'School',
-        value: user!.school!,
-      ),);
+      tiles.add(
+        _InfoTile(
+          icon: Icons.business_rounded,
+          label: 'School',
+          value: user!.school!,
+        ),
+      );
     }
     if ((user?.parentPhone ?? '').isNotEmpty) {
-      tiles.add(_InfoTile(
-        icon: Icons.family_restroom_rounded,
-        label: 'Parent',
-        value: user!.parentPhone!,
-      ),);
+      tiles.add(
+        _InfoTile(
+          icon: Icons.family_restroom_rounded,
+          label: 'Parent',
+          value: user!.parentPhone!,
+        ),
+      );
     }
     return Row(
       children: [
@@ -689,7 +738,9 @@ class _InfoTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.md,),
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -710,7 +761,10 @@ class _InfoTile extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.65),
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
@@ -746,7 +800,8 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text.toUpperCase(),
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+          color:
+              Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.8,
@@ -780,7 +835,9 @@ class _MenuTile extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.md,),
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
         child: Row(
           children: [
             Container(
@@ -815,15 +872,23 @@ class _MenuTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.65),
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.45),
+            ),
           ],
         ),
       ),
@@ -834,8 +899,8 @@ class _MenuTile extends StatelessWidget {
 class _ThinDivider extends StatelessWidget {
   const _ThinDivider();
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: Divider(height: 1, color: AppColors.divider),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Divider(height: 1, color: context.palette.divider),
       );
 }

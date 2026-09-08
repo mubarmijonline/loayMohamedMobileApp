@@ -6,20 +6,49 @@ import 'app_colors.dart';
 class AppTypography {
   AppTypography._();
 
-  /// The single typeface used everywhere in the app. Plus Jakarta Sans is a
-  /// modern geometric sans-serif used widely in education / SaaS products in
-  /// 2024–2026. Exposed so the theme can install it as the default
-  /// `fontFamily`, which makes even inline `TextStyle(...)` calls inherit it.
-  static String get fontFamily => GoogleFonts.plusJakartaSans().fontFamily!;
+  /// Body copy — `--mj-font`. Installed as the theme's default `fontFamily`
+  /// so even inline `TextStyle(...)` calls inherit it.
+  static String get fontFamily => GoogleFonts.dmSans().fontFamily!;
+
+  /// Headings, buttons, chips, stat numerals, card names — `--mj-font-display`.
+  static String get displayFamily =>
+      GoogleFonts.bricolageGrotesque().fontFamily!;
+
+  /// Kickers, eyebrows and spec labels — `--mj-font-mono`.
+  static String get monoFamily => GoogleFonts.jetBrainsMono().fontFamily!;
+
+  /// Arabic / RTL — `--mj-font-ar`.
+  ///
+  /// Wired as a *fallback* rather than a separate theme: neither Bricolage
+  /// Grotesque nor DM Sans ships Arabic glyphs, so without this an Arabic
+  /// string renders as tofu boxes. As a fallback it kicks in per-glyph, which
+  /// also handles a mixed Arabic/Latin line correctly.
+  static String get arabicFamily => GoogleFonts.notoKufiArabic().fontFamily!;
+
+  static List<String> get fallbacks => [arabicFamily];
+
+  /// A monospaced label style for kickers and eyebrows.
+  static TextStyle kicker({Color? color}) => GoogleFonts.jetBrainsMono(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.8,
+        height: 1.4,
+        color: color,
+      );
 
   static TextTheme build(Brightness brightness) {
     final base = brightness == Brightness.dark
         ? Typography.whiteMountainView
         : Typography.blackMountainView;
 
-    // Single typeface across the app for a cleaner, modern look.
-    final body = GoogleFonts.plusJakartaSansTextTheme(base);
-    final heading = GoogleFonts.plusJakartaSansTextTheme(base);
+    // Two typefaces with distinct jobs: Bricolage Grotesque carries the
+    // display/title/label roles (headings, buttons, chips, stat numerals),
+    // DM Sans carries body copy. Both fall back to Noto Kufi Arabic so Arabic
+    // text renders instead of tofu.
+    final body =
+        GoogleFonts.dmSansTextTheme(base).apply(fontFamilyFallback: fallbacks);
+    final heading = GoogleFonts.bricolageGrotesqueTextTheme(base)
+        .apply(fontFamilyFallback: fallbacks);
 
     return body
         .copyWith(
@@ -100,11 +129,15 @@ class AppTypography {
             fontSize: 13,
             height: 1.35,
           ),
-          labelSmall: heading.labelSmall?.copyWith(
+          // Kickers, eyebrows and spec labels — the mono role. Slightly wider
+          // tracking because JetBrains Mono is already monospaced and reads
+          // tight at this size.
+          labelSmall: GoogleFonts.jetBrainsMono(
+            textStyle: heading.labelSmall,
             fontWeight: FontWeight.w500,
             fontSize: 11,
             height: 1.35,
-            letterSpacing: 0.3,
+            letterSpacing: 0.5,
           ),
         )
         .apply(

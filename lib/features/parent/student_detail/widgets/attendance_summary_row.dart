@@ -40,8 +40,7 @@ class AttendanceSummaryRow extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip(
-      {required this.label, required this.value, required this.color});
+  const _Chip({required this.label, required this.value, required this.color});
   final String label;
   final int value;
   final Color color;
@@ -57,14 +56,10 @@ class _Chip extends StatelessWidget {
           children: [
             Text('$value',
                 style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18)),
+                    color: color, fontWeight: FontWeight.w800, fontSize: 18)),
             Text(label,
                 style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11)),
+                    color: color, fontWeight: FontWeight.w600, fontSize: 11)),
           ],
         ),
       );

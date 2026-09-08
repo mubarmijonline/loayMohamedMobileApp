@@ -37,8 +37,7 @@ class SectionError extends StatelessWidget {
               size: 40, color: theme.colorScheme.error),
           const SizedBox(height: AppSpacing.sm),
           Text(message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium),
+              textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
           if (canRetry) ...[
             const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(

@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_spacing.dart';
@@ -13,6 +16,7 @@ import '../../core/error/failures.dart';
 import '../_shared/models.dart';
 import '../providers.dart';
 import '../sync/app_data_sync.dart';
+import '../../core/design/app_palette.dart';
 
 class AssignmentDetailScreen extends ConsumerStatefulWidget {
   const AssignmentDetailScreen({super.key, required this.id});
@@ -67,10 +71,12 @@ class _AssignmentDetailScreenState
       await ref.read(studentRepositoryProvider).submitAssignment(
             id: widget.id,
             textContent: _text.text.trim().isEmpty ? null : _text.text.trim(),
-            attachment: mp,
+            // The route accepts several files under `attachments[]`; the
+            // picker is single-select today, so this is a one-item list.
+            attachments: mp == null ? const <MultipartFile>[] : [mp],
           );
       if (!mounted) return;
-        ref
+      ref
           .read(appDataSyncProvider)
           .onAssignmentSubmitted(assignmentId: widget.id);
       _text.clear();
@@ -100,11 +106,13 @@ class _AssignmentDetailScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(assignmentAsync.valueOrNull?.title.isNotEmpty == true
-            ? assignmentAsync.value!.title
-            : (assignmentAsync.valueOrNull?.type == 'quiz'
-                ? 'Quiz'
-                : 'Assignment'),),
+        title: Text(
+          assignmentAsync.valueOrNull?.title.isNotEmpty == true
+              ? assignmentAsync.value!.title
+              : (assignmentAsync.valueOrNull?.type == 'quiz'
+                  ? 'Quiz'
+                  : 'Assignment'),
+        ),
         elevation: 0,
       ),
       body: assignmentAsync.when(
@@ -121,13 +129,11 @@ class _AssignmentDetailScreenState
   Widget _buildBody(Assignment a) {
     final theme = Theme.of(context);
     final isQuiz = a.type == 'quiz';
-    // Once anything has been submitted (or graded / late) we hide the
-    // submission form and the attach controls entirely. The student can no
-    // longer overwrite their submission from the mobile app.
-    final hasSubmission = a.status == 'submitted' ||
-        a.status == 'graded' ||
-        a.status == 'late';
-    final readOnly = hasSubmission || !a.allowResubmit;
+    // `late` is not a submission_status — it only ever appears in
+    // `submission_states` alongside `submitted` (API_BRIEF §7).
+    final hasSubmission = a.isSubmitted;
+    // The backend accepts resubmission right up until the work is graded.
+    final readOnly = hasSubmission || !a.canResubmit;
     final overdue = a.isOverdue;
 
     return ListView(
@@ -179,7 +185,10 @@ class _AssignmentDetailScreenState
                             child: Text(
                               a.subjectName!,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.65),
                               ),
                             ),
                           ),
@@ -194,7 +203,9 @@ class _AssignmentDetailScreenState
                 runSpacing: 8,
                 children: [
                   _Pill(
-                    icon: isQuiz ? Icons.quiz_outlined : Icons.assignment_outlined,
+                    icon: isQuiz
+                        ? Icons.quiz_outlined
+                        : Icons.assignment_outlined,
                     label: isQuiz ? 'Quiz' : 'Homework',
                     color: isQuiz ? AppColors.info : AppColors.primary,
                   ),
@@ -203,19 +214,27 @@ class _AssignmentDetailScreenState
                     _Pill(
                       icon: Icons.schedule_rounded,
                       label: _dueLabel(a.dueAt!),
-                      color: overdue ? AppColors.danger : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                      color: overdue
+                          ? AppColors.danger
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.65),
                     ),
                   if (a.maxScore != null)
                     _Pill(
                       icon: Icons.star_outline_rounded,
                       label: 'Max ${a.maxScore}',
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.65),
                     ),
                 ],
               ),
               if (a.description?.trim().isNotEmpty == true) ...[
                 const SizedBox(height: AppSpacing.md),
-                const Divider(height: 1, color: AppColors.divider),
+                Divider(height: 1, color: context.palette.divider),
                 const SizedBox(height: AppSpacing.md),
                 SelectableText(
                   a.description!,
@@ -227,16 +246,29 @@ class _AssignmentDetailScreenState
               ],
               if (a.attachmentUrl?.isNotEmpty == true) ...[
                 const SizedBox(height: AppSpacing.md),
-                _AttachmentChip(url: a.attachmentUrl!),
+                _AttachmentChip(
+                  assignmentId: a.id,
+                  filename: a.attachmentFilename,
+                ),
               ],
             ],
           ),
         ),
 
-        // ── Score card (graded) ──────────────────────────────────────────
-        if (a.status == 'graded') ...[
+        // ── Mark (graded + released) ─────────────────────────────────────
+        // When `submission.released == false` the grade and feedback are
+        // ABSENT from the payload — not zero. Show the awaiting-release state
+        // and no number (API_BRIEF §7).
+        if (a.awaitingRelease) ...[
           const SizedBox(height: AppSpacing.md),
-          _ScoreCard(score: a.score, maxScore: a.maxScore, feedback: a.feedback),
+          const _AwaitingReleaseCard(),
+        ] else if (a.isGraded) ...[
+          const SizedBox(height: AppSpacing.md),
+          _ScoreCard(
+            score: a.visibleGrade,
+            maxScore: a.submission?.marking?.totalMax ?? a.maxScore,
+            feedback: a.submission?.feedback,
+          ),
         ],
 
         // ── Submission status (already submitted) ────────────────────────
@@ -274,7 +306,10 @@ class _AssignmentDetailScreenState
                       Text(
                         'Awaiting grading.',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.65),
                         ),
                       ),
                     ],
@@ -365,9 +400,7 @@ class _AssignmentDetailScreenState
       final d = -diff.inDays;
       if (d > 0) return 'Overdue · $d day${d == 1 ? '' : 's'}';
       final h = -diff.inHours;
-      return h > 0
-          ? 'Overdue · $h hour${h == 1 ? '' : 's'}'
-          : 'Overdue';
+      return h > 0 ? 'Overdue · $h hour${h == 1 ? '' : 's'}' : 'Overdue';
     }
     if (diff.inDays >= 1) return 'Due in ${diff.inDays}d · $fmt';
     if (diff.inHours >= 1) return 'Due in ${diff.inHours}h · $fmt';
@@ -412,7 +445,9 @@ class _SubmissionForm extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8,),
+                horizontal: 12,
+                vertical: 8,
+              ),
               child: TextField(
                 controller: controller,
                 minLines: 5,
@@ -451,7 +486,7 @@ class _SubmissionForm extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.divider),
+                    side: BorderSide(color: context.palette.divider),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -468,8 +503,7 @@ class _SubmissionForm extends StatelessWidget {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.2,
-                            valueColor:
-                                AlwaysStoppedAnimation(Colors.white),
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
                           ),
                         )
                       : const Icon(Icons.send_rounded, size: 18),
@@ -491,7 +525,10 @@ class _SubmissionForm extends StatelessWidget {
             child: Text(
               'You can attach a single file up to 25MB (pdf, image, doc).',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.65),
               ),
             ),
           ),
@@ -520,8 +557,11 @@ class _FileChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(_iconFor(file.extension),
-              color: AppColors.primary, size: 22,),
+          Icon(
+            _iconFor(file.extension),
+            color: AppColors.primary,
+            size: 22,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -539,7 +579,10 @@ class _FileChip extends StatelessWidget {
                 Text(
                   _humanSize(file.size),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.65),
                   ),
                 ),
               ],
@@ -549,7 +592,8 @@ class _FileChip extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             onPressed: onRemove,
             icon: const Icon(Icons.close_rounded, size: 18),
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
             tooltip: 'Remove',
           ),
         ],
@@ -607,8 +651,10 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = filled
         ? color.withValues(alpha: 0.12)
-        : AppColors.divider.withValues(alpha: 0.6);
-    final fg = filled ? color : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
+        : context.palette.divider.withValues(alpha: 0.6);
+    final fg = filled
+        ? color
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -634,29 +680,81 @@ class _Pill extends StatelessWidget {
   }
 }
 
-class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({required this.url});
-  final String url;
+/// Opens a teacher attachment.
+///
+/// `attachment_url` is a **token-protected** path (API_BRIEF §7): it only
+/// serves bytes when the request carries the `Authorization` header. Handing
+/// the URL to `launchUrl`, `Image.network` or a bare WebView sends no header
+/// and gets a 401.
+///
+/// So: fetch through the authenticated Dio client, write to the app's own
+/// sandboxed temp directory, and hand that local path to the system viewer.
+/// Nothing is written to shared storage and no URL leaves the app.
+class _AttachmentChip extends ConsumerStatefulWidget {
+  const _AttachmentChip({required this.assignmentId, this.filename});
+  final String assignmentId;
+  final String? filename;
+
+  @override
+  ConsumerState<_AttachmentChip> createState() => _AttachmentChipState();
+}
+
+class _AttachmentChipState extends ConsumerState<_AttachmentChip> {
+  bool _busy = false;
+
+  Future<void> _open() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final file = await ref
+          .read(studentRepositoryProvider)
+          .assignmentAttachment(widget.assignmentId);
+      final dir = await getTemporaryDirectory();
+      // Sanitise: the filename comes from a server header, so it must not be
+      // able to escape the temp directory.
+      final safe = file.filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final path = '${dir.path}/$safe';
+      await File(path).writeAsBytes(file.bytes, flush: true);
+      final result = await OpenFilex.open(path);
+      if (!mounted) return;
+      if (result.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.message)),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final msg =
+          e is AppFailure ? e.message : 'Could not open the attachment.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final name = Uri.tryParse(url)?.pathSegments.lastOrNull ?? 'Attachment';
+    final name =
+        widget.filename?.isNotEmpty == true ? widget.filename! : 'Attachment';
     return Material(
-      color: AppColors.background,
+      color: context.palette.background,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => launchUrl(Uri.parse(url),
-            mode: LaunchMode.externalApplication,),
+        onTap: _busy ? null : _open,
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.divider),
+            border: Border.all(color: context.palette.divider),
           ),
           child: Row(
             children: [
-              const Icon(Icons.attachment_rounded,
-                  size: 18, color: AppColors.primary,),
+              const Icon(
+                Icons.attachment_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -671,11 +769,82 @@ class _AttachmentChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(Icons.open_in_new_rounded,
-                  size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),),
+              if (_busy)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  Icons.download_rounded,
+                  size: 16,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.65),
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown when the work is marked but the teacher has not released the mark.
+///
+/// The grade is ABSENT from the payload in this state — rendering a 0 here
+/// would tell the student they failed when nothing has been published yet.
+class _AwaitingReleaseCard extends StatelessWidget {
+  const _AwaitingReleaseCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return PremiumCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.hourglass_top_rounded,
+              size: 18,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Awaiting release',
+                  style: TextStyle(
+                    color: onSurface,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Your teacher has marked this but has not published the '
+                  'result yet.',
+                  style: TextStyle(
+                    color: onSurface.withValues(alpha: 0.65),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -706,18 +875,26 @@ class _ScoreCard extends StatelessWidget {
                   color: AppColors.success.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.emoji_events_rounded,
-                    color: AppColors.success, size: 22,),
+                child: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: AppColors.success,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Score',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
-                        ),),
+                    Text(
+                      'Score',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.65),
+                      ),
+                    ),
                     Text(
                       '${score ?? '—'} / ${maxScore ?? '—'}',
                       style: theme.textTheme.headlineSmall?.copyWith(
@@ -744,7 +921,7 @@ class _ScoreCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct,
               minHeight: 8,
-              backgroundColor: AppColors.divider,
+              backgroundColor: context.palette.divider,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.success),
             ),
@@ -754,7 +931,10 @@ class _ScoreCard extends StatelessWidget {
             Text(
               'Feedback',
               style: theme.textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.65),
                 fontWeight: FontWeight.w700,
               ),
             ),

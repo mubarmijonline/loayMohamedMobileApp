@@ -36,9 +36,11 @@ class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
-      // Apply Inter to *every* TextStyle by default — even inline ones that
-      // don't read from textTheme.
+      // Apply the body face to *every* TextStyle by default — even inline
+      // ones that don't read from textTheme. The Arabic fallback rides along,
+      // otherwise an inline TextStyle renders Arabic as tofu boxes.
       fontFamily: AppTypography.fontFamily,
+      fontFamilyFallback: AppTypography.fallbacks,
       scaffoldBackgroundColor:
           isDark ? AppColors.primaryDark : AppColors.background,
       textTheme: textTheme,
@@ -76,9 +78,13 @@ class AppTheme {
           minimumSize: const Size(0, 54),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.pill),),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
           textStyle: textTheme.labelLarge?.copyWith(
-              fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.2,),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
           elevation: 0,
         ),
       ),
@@ -89,16 +95,21 @@ class AppTheme {
           minimumSize: const Size(0, 54),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.pill),),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
           textStyle: textTheme.labelLarge?.copyWith(
-              fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.2,),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 48),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           foregroundColor: AppColors.primary,
           textStyle:
@@ -107,9 +118,57 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          // Navy is invisible on the dark scaffold — this is what made
+          // "See all" unreadable. Cyan reads on both.
+          foregroundColor: isDark ? AppColors.accent : AppColors.primary,
           textStyle:
               textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ),
+      // Selection controls inherit `colorScheme.primary`, which is brand navy
+      // in both themes — so in dark the *selected* radio was near-invisible
+      // while the unselected ones were bright white rings, i.e. exactly
+      // backwards. `primary` is deliberately left navy: making it cyan would
+      // also recolour filled buttons, and white on #1FC8E8 is about 2.2:1,
+      // well under AA. So the controls are themed directly instead.
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? (isDark ? AppColors.accent : AppColors.primary)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.55)
+                  : AppColors.textSecondary),
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? (isDark ? AppColors.accent : AppColors.primary)
+              : Colors.transparent,
+        ),
+        checkColor: WidgetStatePropertyAll(
+          isDark ? AppColors.primaryDark : Colors.white,
+        ),
+        side: BorderSide(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.55)
+              : AppColors.textSecondary,
+          width: 1.5,
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? (isDark ? AppColors.accent : AppColors.primary)
+              : (isDark ? Colors.white.withValues(alpha: 0.75) : Colors.white),
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? (isDark ? AppColors.accent : AppColors.primary)
+                  .withValues(alpha: 0.45)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.16)
+                  : AppColors.divider),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -152,11 +211,11 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: isDark ? AppColors.primary : AppColors.background,
-        selectedColor:
-            isDark ? AppColors.accentDark : AppColors.primarySurface,
+        selectedColor: isDark ? AppColors.accentDark : AppColors.primarySurface,
         side: BorderSide.none,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.pill),),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
         labelStyle:
             textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -169,14 +228,17 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.primary,
-        linearTrackColor: AppColors.divider,
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        // Navy on a dark scaffold is barely a bar at all.
+        color: isDark ? AppColors.accent : AppColors.primary,
+        linearTrackColor:
+            isDark ? Colors.white.withValues(alpha: 0.14) : AppColors.divider,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.xl),),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+        ),
         titleTextStyle: textTheme.titleLarge,
         contentTextStyle:
             textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
@@ -194,7 +256,8 @@ class AppTheme {
         contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: AppColors.primary,

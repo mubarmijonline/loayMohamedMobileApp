@@ -9,6 +9,7 @@ import '../features/notifications/notifications_controller.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/subjects/subjects_screen.dart';
+import '../core/design/app_palette.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -71,11 +72,11 @@ class _AppBottomBar extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(28),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: AppColors.shadow,
+              color: context.palette.shadow,
               blurRadius: 24,
-              offset: Offset(0, 8),
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -137,8 +138,14 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = AppColors.primary;
-    final color = selected ? activeColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
+    // The selected pill is `surfaceTinted`, which is navy in dark mode — so a
+    // navy foreground rendered navy-on-navy and the active tab's label was
+    // unreadable. Cyan carries on both, and is the brand accent either way.
+    final activeColor =
+        context.palette.isDark ? AppColors.accent : AppColors.primary;
+    final color = selected
+        ? activeColor
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
 
     return Material(
       color: Colors.transparent,
@@ -153,7 +160,8 @@ class _NavItem extends StatelessWidget {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primarySurface : Colors.transparent,
+            color:
+                selected ? context.palette.surfaceTinted : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
@@ -176,7 +184,7 @@ class _NavItem extends StatelessWidget {
                           color: AppColors.danger,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: AppColors.surface,
+                            color: context.palette.surface,
                             width: 1.5,
                           ),
                         ),

@@ -23,9 +23,8 @@ class ActivityNotification extends Equatable {
         title: (j['title'] ?? '').toString(),
         body: (j['body'] ?? '').toString(),
         category: (j['category'] ?? j['type'] ?? 'general').toString(),
-        createdAt:
-            DateTime.tryParse(j['created_at']?.toString() ?? '') ??
-                DateTime.now(),
+        createdAt: DateTime.tryParse(j['created_at']?.toString() ?? '') ??
+            DateTime.now(),
         read: j['read'] == true,
       );
 

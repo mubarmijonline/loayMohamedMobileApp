@@ -6,6 +6,7 @@ import '../../core/design/app_spacing.dart';
 import '../auth/domain/student_user.dart';
 import '../auth/presentation/auth_controller.dart';
 import 'student_detail/parent_student_detail_screen.dart';
+import '../../core/design/app_palette.dart';
 
 /// Parent home — shows all linked students and lets the parent tap into each.
 class ParentHomeScreen extends ConsumerWidget {
@@ -18,7 +19,7 @@ class ParentHomeScreen extends ConsumerWidget {
     final students = user?.linkedStudents ?? const [];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.palette.background,
       body: CustomScrollView(
         slivers: [
           // ── App bar ──────────────────────────────────────────────────
@@ -42,7 +43,7 @@ class ParentHomeScreen extends ConsumerWidget {
                           ? 'Hello, ${user!.name}'
                           : 'Parent Portal',
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
+                        color: context.palette.onBrand,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -79,7 +80,8 @@ class ParentHomeScreen extends ConsumerWidget {
                   children: [
                     Icon(Icons.family_restroom_rounded,
                         size: 72,
-                        color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.2)),
                     const SizedBox(height: AppSpacing.lg),
                     Text('No students linked yet',
                         style: theme.textTheme.titleMedium),
@@ -100,8 +102,7 @@ class ParentHomeScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(AppSpacing.lg),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, i) =>
-                      _StudentCard(student: students[i]),
+                  (context, i) => _StudentCard(student: students[i]),
                   childCount: students.length,
                 ),
               ),
@@ -131,7 +132,7 @@ class _StudentCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg)),
       elevation: 0,
-      color: Colors.white,
+      color: context.palette.surface,
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
         onTap: () => Navigator.of(context).push(
@@ -146,7 +147,7 @@ class _StudentCard extends StatelessWidget {
               // Avatar
               CircleAvatar(
                 radius: 30,
-                backgroundColor: AppColors.primarySurface,
+                backgroundColor: context.palette.surfaceTinted,
                 backgroundImage: (student.avatarUrl?.isNotEmpty ?? false)
                     ? NetworkImage(student.avatarUrl!)
                     : null,
@@ -170,28 +171,27 @@ class _StudentCard extends StatelessWidget {
                   children: [
                     Text(
                       student.name,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700),
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    if (student.grade?.isNotEmpty ?? false) ...
-                      [
-                        const SizedBox(height: 2),
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primarySurface,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            _formatGrade(student.grade!),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600),
-                          ),
+                    if (student.grade?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 2),
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: context.palette.surfaceTinted,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ],
+                        child: Text(
+                          _formatGrade(student.grade!),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -205,4 +205,3 @@ class _StudentCard extends StatelessWidget {
     );
   }
 }
-

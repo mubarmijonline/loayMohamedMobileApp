@@ -8,6 +8,7 @@ import '../../core/error/failures.dart';
 import '../_shared/models.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../providers.dart';
+import '../../core/design/app_palette.dart';
 
 class SubjectsScreen extends ConsumerWidget {
   const SubjectsScreen({super.key});
@@ -16,7 +17,6 @@ class SubjectsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final subjects = ref.watch(enrolledSubjectsProvider);
     final enrollments = ref.watch(enrollmentsProvider);
-    final suggested = ref.watch(suggestedSubjectsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Subjects')),
       body: RefreshIndicator(
@@ -25,7 +25,6 @@ class SubjectsScreen extends ConsumerWidget {
           ref.invalidate(subjectsProvider);
           ref.invalidate(enrollmentsProvider);
           ref.invalidate(subjectWorkloadProvider);
-          ref.invalidate(suggestedSubjectsProvider);
           await ref.read(enrolledSubjectsProvider.future);
         },
         color: AppColors.secondary,
@@ -51,13 +50,6 @@ class SubjectsScreen extends ConsumerWidget {
               for (final e in (enrollments.value ?? const <Enrollment>[]))
                 e.subjectId: e,
             };
-            final suggestedItems = suggested.value ?? const <Subject>[];
-            // Hide subjects already in the enrolled list, in case the
-            // backend hasn't filtered them out yet.
-            final enrolledIds = items.map((s) => s.id).toSet();
-            final suggestedFiltered = suggestedItems
-                .where((s) => !enrolledIds.contains(s.id))
-                .toList(growable: false);
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.lg),
               children: [
@@ -73,82 +65,11 @@ class SubjectsScreen extends ConsumerWidget {
                       enrollment: enrollMap[items[i].id],
                     ),
                   ],
-                if (suggestedFiltered.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.lg),
-                  _SuggestedHeader(count: suggestedFiltered.length),
-                  const SizedBox(height: AppSpacing.md),
-                  for (var i = 0; i < suggestedFiltered.length; i++) ...[
-                    if (i > 0) const SizedBox(height: AppSpacing.sm),
-                    _SubjectCard(
-                      subject: suggestedFiltered[i],
-                      enrollment: enrollMap[suggestedFiltered[i].id],
-                    ),
-                  ],
-                ],
               ],
             );
           },
         ),
       ),
-    );
-  }
-}
-
-/// Header for the "Suggested for your grade" section. Hidden when no
-/// suggestions are available (we never render this widget in that case).
-class _SuggestedHeader extends ConsumerWidget {
-  const _SuggestedHeader({required this.count});
-  final int count;
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final user = ref.watch(authControllerProvider).user;
-    final grade = user?.grade;
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Suggested for you',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              if (grade != null && grade.toString().isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'Available subjects for grade $grade',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurface.withValues(alpha: 0.65),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: isDark
-                ? scheme.onSurface.withValues(alpha: 0.15)
-                : AppColors.secondary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '$count',
-            style: TextStyle(
-              color: isDark ? scheme.onSurface : AppColors.secondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -312,7 +233,8 @@ class _SubjectCardState extends ConsumerState<_SubjectCard> {
 
   IconData _iconFor(String name) {
     final n = name.toLowerCase();
-    if (n.contains('math')) return Icons.functions_rounded;    if (n.contains('phys')) return Icons.science_rounded;
+    if (n.contains('math')) return Icons.functions_rounded;
+    if (n.contains('phys')) return Icons.science_rounded;
     if (n.contains('chem')) return Icons.biotech_rounded;
     if (n.contains('bio')) return Icons.eco_rounded;
     if (n.contains('eng') || n.contains('lang')) {
@@ -327,20 +249,19 @@ class _SubjectCardState extends ConsumerState<_SubjectCard> {
     return Icons.school_rounded;
   }
 
-  Color _progressColor(int pct) {
-    if (pct >= 100) return const Color(0xFF14B8A6);
-    if (pct >= 75) return const Color(0xFF22C55E);
-    if (pct >= 50) return const Color(0xFFF59E0B);
-    if (pct >= 25) return const Color(0xFFF97316);
-    return const Color(0xFFEF4444);
+  Color _progressColor(BuildContext context, int pct) {
+    // One hue plus neutrals. See dashboard_screen._progressColor.
+    if (pct >= 75) return AppColors.success;
+    if (pct == 0) return context.palette.textHint;
+    // See dashboard_screen._progressColor: navy vanishes on a dark card.
+    return context.palette.isDark ? AppColors.accent : AppColors.primary;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final status =
-        enrollment?.status ?? subject.enrollmentStatus ?? 'active';
+    final status = enrollment?.status ?? subject.enrollmentStatus ?? 'active';
     final isActive = status == 'active';
     final workload =
         ref.watch(subjectWorkloadProvider).valueOrNull?[subject.id];
@@ -353,14 +274,12 @@ class _SubjectCardState extends ConsumerState<_SubjectCard> {
           (workload.quizzesTotal - workload.quizzesPending);
       overallPct = ((done / workload.grandTotal) * 100).round();
     } else {
-      overallPct =
-          ((subject.completionPercent ?? 0).clamp(0, 1) * 100).round();
+      overallPct = ((subject.completionPercent ?? 0).clamp(0, 1) * 100).round();
     }
     final pct = overallPct;
 
     return PremiumCard(
-      onTap: () =>
-          Navigator.of(context).pushNamed('/subjects/${subject.id}'),
+      onTap: () => Navigator.of(context).pushNamed('/subjects/${subject.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -373,16 +292,29 @@ class _SubjectCardState extends ConsumerState<_SubjectCard> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.18),
-                      AppColors.secondary.withValues(alpha: 0.18),
-                    ],
+                    colors: context.palette.isDark
+                        ? [
+                            AppColors.accent.withValues(alpha: 0.22),
+                            AppColors.primaryLight.withValues(alpha: 0.35),
+                          ]
+                        : [
+                            AppColors.primary.withValues(alpha: 0.18),
+                            AppColors.secondary.withValues(alpha: 0.18),
+                          ],
                   ),
                   borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: context.palette.isDark
+                      ? Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.30),
+                        )
+                      : null,
                 ),
                 child: Icon(
                   _iconFor(subject.name),
-                  color: AppColors.primary,
+                  // A navy glyph on a navy wash is an empty square in dark.
+                  color: context.palette.isDark
+                      ? AppColors.accent
+                      : AppColors.primary,
                   size: 26,
                 ),
               ),
@@ -515,16 +447,15 @@ class _SubjectCardState extends ConsumerState<_SubjectCard> {
               child: LinearProgressIndicator(
                 value: pct / 100,
                 minHeight: 6,
-                backgroundColor:
-                    scheme.onSurface.withValues(alpha: 0.08),
-                color: _progressColor(pct),
+                backgroundColor: scheme.onSurface.withValues(alpha: 0.08),
+                color: _progressColor(context, pct),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '$pct% complete',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: _progressColor(pct),
+                color: _progressColor(context, pct),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -576,8 +507,7 @@ class _MiniStat extends StatelessWidget {
                       TextSpan(
                         text: ' $label',
                         style: TextStyle(
-                          color:
-                              scheme.onSurface.withValues(alpha: 0.6),
+                          color: scheme.onSurface.withValues(alpha: 0.6),
                           fontWeight: FontWeight.w600,
                         ),
                       ),

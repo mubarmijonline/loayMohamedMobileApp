@@ -6,9 +6,8 @@ import '../../../../core/error/error_mapper.dart';
 import '../../../../core/providers.dart';
 import '../models/progress.dart';
 
-final progressProvider =
-    FutureProvider.family.autoDispose<ProgressReport, String>(
-        (ref, studentId) async {
+final progressProvider = FutureProvider.family
+    .autoDispose<ProgressReport, String>((ref, studentId) async {
   final api = ref.read(apiClientProvider);
   final v1 = AppEnv.I.apiV1Prefix;
   try {

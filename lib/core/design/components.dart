@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'app_colors.dart';
+import 'app_palette.dart';
 import 'app_spacing.dart';
 
 class AppLogo extends StatelessWidget {
@@ -182,11 +183,12 @@ class KpiCard extends StatelessWidget {
         color: scheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.xl),
         border: Border.all(color: scheme.outline.withValues(alpha: 0.4)),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppColors.shadow,
+            // A light shadow over a dark scaffold reads as a glow, not depth.
+            color: context.palette.shadow,
             blurRadius: 16,
-            offset: Offset(0, 6),
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -204,7 +206,8 @@ class KpiCard extends StatelessWidget {
                   color: scheme.surface,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   border: Border.all(
-                      color: scheme.outline.withValues(alpha: 0.4),),
+                    color: scheme.outline.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Icon(icon, color: tint, size: 20),
               ),
@@ -303,10 +306,15 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // In dark mode the caller's pastel would be the brightest thing on the
+    // card, so the fill is derived from the badge's own foreground instead.
+    // Light mode keeps the exact colour it was given.
+    final fill =
+        context.palette.isDark ? color.withValues(alpha: 0.18) : background;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: background,
+        color: fill,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -359,7 +367,7 @@ class ProgressBar extends StatelessWidget {
       child: LinearProgressIndicator(
         value: value.clamp(0, 1).toDouble(),
         minHeight: 8,
-        backgroundColor: AppColors.divider,
+        backgroundColor: context.palette.divider,
         valueColor: AlwaysStoppedAnimation<Color>(color ?? AppColors.accent),
       ),
     );
@@ -369,11 +377,12 @@ class ProgressBar extends StatelessWidget {
 // ───────────────────────────── SkeletonBox ─────────────────────────────
 
 class SkeletonBox extends StatelessWidget {
-  const SkeletonBox(
-      {super.key,
-      this.height = 16,
-      this.width = double.infinity,
-      this.radius = 8,});
+  const SkeletonBox({
+    super.key,
+    this.height = 16,
+    this.width = double.infinity,
+    this.radius = 8,
+  });
   final double height;
   final double width;
   final double radius;
@@ -381,13 +390,13 @@ class SkeletonBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: AppColors.divider,
-      highlightColor: AppColors.background,
+      baseColor: context.palette.divider,
+      highlightColor: context.palette.surfaceAlt,
       child: Container(
         height: height,
         width: width,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.palette.surfaceAlt,
           borderRadius: BorderRadius.circular(radius),
         ),
       ),
@@ -418,7 +427,9 @@ class EmptyState extends StatelessWidget {
       width: double.infinity,
       child: Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xl, vertical: AppSpacing.xl,),
+          horizontal: AppSpacing.xl,
+          vertical: AppSpacing.xl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -445,8 +456,9 @@ class EmptyState extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 message!,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                ),
                 textAlign: TextAlign.center,
               ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
             ],
@@ -494,12 +506,15 @@ class _LayeredCircles extends StatelessWidget {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.surface,
-              border: Border.all(color: AppColors.divider),
+              color: context.palette.surface,
+              border: Border.all(color: context.palette.divider),
             ),
             alignment: Alignment.center,
-            child: Icon(icon,
-                size: 36, color: AppColors.primary.withValues(alpha: 0.7),),
+            child: Icon(
+              icon,
+              size: 36,
+              color: AppColors.primary.withValues(alpha: 0.7),
+            ),
           ),
         ],
       ),
@@ -589,8 +604,12 @@ class SectionHeader extends StatelessWidget {
 // ───────────────────────────── AvatarInitials ─────────────────────────────
 
 class AvatarInitials extends StatelessWidget {
-  const AvatarInitials(
-      {super.key, required this.name, this.size = 44, this.ring = false,});
+  const AvatarInitials({
+    super.key,
+    required this.name,
+    this.size = 44,
+    this.ring = false,
+  });
   final String name;
   final double size;
   final bool ring;

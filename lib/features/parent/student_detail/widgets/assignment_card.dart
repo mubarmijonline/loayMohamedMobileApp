@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_spacing.dart';
 import '../models/assignment.dart';
+import '../../../../core/design/app_palette.dart';
 
 class AssignmentCard extends StatelessWidget {
   const AssignmentCard({super.key, required this.item});
@@ -18,7 +19,7 @@ class AssignmentCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       elevation: 0,
-      color: Colors.white,
+      color: context.palette.surface,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Padding(
@@ -40,8 +41,7 @@ class AssignmentCard extends StatelessWidget {
               children: [
                 Icon(Icons.calendar_today_rounded,
                     size: 13,
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
                 const SizedBox(width: 4),
                 Text(dueLabel,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -94,8 +94,8 @@ class _StatusChip extends StatelessWidget {
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(label,
-          style: TextStyle(
-              color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
+          style:
+              TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 }

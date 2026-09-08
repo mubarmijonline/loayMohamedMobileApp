@@ -84,8 +84,9 @@ class AttendanceData extends Equatable {
     return AttendanceData(
       month: (j['month'] ?? '').toString(),
       summary: summary,
-      attendanceRate:
-          (j['attendance_rate'] is num) ? (j['attendance_rate'] as num).toDouble() : 0.0,
+      attendanceRate: (j['attendance_rate'] is num)
+          ? (j['attendance_rate'] as num).toDouble()
+          : 0.0,
       records: ((j['records'] as List?) ?? const [])
           .whereType<Map>()
           .map((m) => AttendanceRecord.fromJson(Map<String, dynamic>.from(m)))

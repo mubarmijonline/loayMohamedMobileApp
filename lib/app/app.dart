@@ -111,8 +111,7 @@ class _LoayMohamedAppState extends ConsumerState<LoayMohamedApp> {
 
         // Always navigate to /login and clear the stack, regardless of the
         // reason for logout (manual, token expiry, server revoke, blocked).
-        Navigator.of(ctx)
-            .pushNamedAndRemoveUntil('/login', (_) => false);
+        Navigator.of(ctx).pushNamedAndRemoveUntil('/login', (_) => false);
       });
     });
 
@@ -166,16 +165,18 @@ class _LoayMohamedAppState extends ConsumerState<LoayMohamedApp> {
             name.length > '/subjects/'.length) {
           final id = name.substring('/subjects/'.length);
           return MaterialPageRoute(
-              builder: (_) => SubjectDetailScreen(subjectId: id),
-              settings: settings,);
+            builder: (_) => SubjectDetailScreen(subjectId: id),
+            settings: settings,
+          );
         }
         // Assignment detail: /assignments/:id
         if (name.startsWith('/assignments/') &&
             name.length > '/assignments/'.length) {
           final id = name.substring('/assignments/'.length);
           return MaterialPageRoute(
-              builder: (_) => AssignmentDetailScreen(id: id),
-              settings: settings,);
+            builder: (_) => AssignmentDetailScreen(id: id),
+            settings: settings,
+          );
         }
         // Class videos (Cloudflare Stream): /classes/:id/videos
         // Optional `?group=<title>` query string deep-links to a specific
@@ -200,23 +201,30 @@ class _LoayMohamedAppState extends ConsumerState<LoayMohamedApp> {
         switch (name) {
           case '/parent/home':
             return MaterialPageRoute(
-                builder: (_) => const ParentHomeScreen(),
-                settings: settings);
+                builder: (_) => const ParentHomeScreen(), settings: settings);
           case '/home':
             return MaterialPageRoute(
                 builder: (_) => const AppShell(), settings: settings);
           case '/login':
             return MaterialPageRoute(
-                builder: (_) => const LoginScreen(), settings: settings,);
+              builder: (_) => const LoginScreen(),
+              settings: settings,
+            );
           case '/register':
             return MaterialPageRoute(
-                builder: (_) => const RegisterScreen(), settings: settings,);
+              builder: (_) => const RegisterScreen(),
+              settings: settings,
+            );
           case '/subjects':
             return MaterialPageRoute(
-                builder: (_) => const SubjectsScreen(), settings: settings,);
+              builder: (_) => const SubjectsScreen(),
+              settings: settings,
+            );
           case '/assignments':
             return MaterialPageRoute(
-                builder: (_) => const AssignmentsScreen(), settings: settings,);
+              builder: (_) => const AssignmentsScreen(),
+              settings: settings,
+            );
           case '/quizzes':
             return MaterialPageRoute(
               builder: (_) => const AssignmentsScreen(type: 'quiz'),
@@ -224,22 +232,29 @@ class _LoayMohamedAppState extends ConsumerState<LoayMohamedApp> {
             );
           case '/announcements':
             return MaterialPageRoute(
-                builder: (_) => const AnnouncementsScreen(),
-                settings: settings,);
+              builder: (_) => const AnnouncementsScreen(),
+              settings: settings,
+            );
           case '/notifications':
             return MaterialPageRoute(
-                builder: (_) => const NotificationsScreen(),
-                settings: settings,);
+              builder: (_) => const NotificationsScreen(),
+              settings: settings,
+            );
           case '/profile':
             return MaterialPageRoute(
-                builder: (_) => const ProfileScreen(), settings: settings,);
+              builder: (_) => const ProfileScreen(),
+              settings: settings,
+            );
           case '/complete-profile':
             return MaterialPageRoute(
-                builder: (_) => const CompleteProfileScreen(),
-                settings: settings,);
+              builder: (_) => const CompleteProfileScreen(),
+              settings: settings,
+            );
           case '/settings':
             return MaterialPageRoute(
-                builder: (_) => const SettingsScreen(), settings: settings,);
+              builder: (_) => const SettingsScreen(),
+              settings: settings,
+            );
           case '/player':
             final args = settings.arguments as Map?;
             if (args == null) return null;

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/app_spacing.dart';
 import '../models/activity_notification.dart';
 import '../providers/notifications_provider.dart';
+import '../../../../core/design/app_palette.dart';
 
 class ActivityNotificationCard extends ConsumerWidget {
   const ActivityNotificationCard({
@@ -39,7 +40,7 @@ class ActivityNotificationCard extends ConsumerWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.palette.surface,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border(left: BorderSide(color: color, width: 4)),
         ),
@@ -75,8 +76,7 @@ class ActivityNotificationCard extends ConsumerWidget {
                 margin: const EdgeInsets.only(left: AppSpacing.sm, top: 4),
                 width: 10,
                 height: 10,
-                decoration:
-                    BoxDecoration(color: color, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
           ],
         ),

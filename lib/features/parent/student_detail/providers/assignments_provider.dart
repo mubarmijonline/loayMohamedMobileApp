@@ -7,9 +7,8 @@ import '../../../../core/providers.dart';
 import '../models/assignment.dart';
 
 /// Loads the assignment list for one student. Lazy: only fires when watched.
-final assignmentsProvider =
-    FutureProvider.family.autoDispose<List<Assignment>, String>(
-        (ref, studentId) async {
+final assignmentsProvider = FutureProvider.family
+    .autoDispose<List<Assignment>, String>((ref, studentId) async {
   final api = ref.read(apiClientProvider);
   final v1 = AppEnv.I.apiV1Prefix;
   try {

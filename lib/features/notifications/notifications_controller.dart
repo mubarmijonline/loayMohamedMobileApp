@@ -56,16 +56,17 @@ class NotificationsController extends StateNotifier<NotificationsState> {
     state = state.copyWith(items: updated);
     _ref.read(appDataSyncProvider).onNotificationsReadChanged();
     try {
-      await _ref.read(studentRepositoryProvider).markNotificationRead(notificationId: id);
+      await _ref.read(studentRepositoryProvider).markNotificationRead(id);
     } catch (_) {/* swallow — UI already optimistic */}
   }
 
   Future<void> markAllRead() async {
-    final updated = state.items.map((n) => n.copyWith(read: true)).toList(growable: false);
+    final updated =
+        state.items.map((n) => n.copyWith(read: true)).toList(growable: false);
     state = state.copyWith(items: updated);
     _ref.read(appDataSyncProvider).onNotificationsReadChanged();
     try {
-      await _ref.read(studentRepositoryProvider).markNotificationRead();
+      await _ref.read(studentRepositoryProvider).markAllNotificationsRead();
     } catch (_) {}
   }
 

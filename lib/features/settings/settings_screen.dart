@@ -27,10 +27,17 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
   final KvCache _cache;
   String? _userId;
 
-  static String _key(String? userId) =>
-      userId == null || userId.isEmpty
-          ? 'settings.theme'
-          : 'settings.theme.$userId';
+  static String _key(String? userId) => userId == null || userId.isEmpty
+      ? 'settings.theme'
+      : 'settings.theme.$userId';
+
+  /// The key the web student portal uses (`docs/mobile/THEME_SPEC.md` §6).
+  ///
+  /// Kept in sync alongside the per-user keys so support can reason about both
+  /// clients at once. The per-user key still wins when present — two students
+  /// sharing a phone should not share a theme, which the portal's single key
+  /// cannot express.
+  static const portalKey = 'loay-student-color-mode';
 
   static ThemeMode _load(KvCache c, String? userId) {
     switch (c.getString(_key(userId))) {
@@ -50,6 +57,14 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
               return ThemeMode.dark;
           }
         }
+        // Then the portal's own key, so a student who set dark mode on the web
+        // finds the app already in dark mode.
+        switch (c.getString(portalKey)) {
+          case 'light':
+            return ThemeMode.light;
+          case 'dark':
+            return ThemeMode.dark;
+        }
         return ThemeMode.system;
     }
   }
@@ -61,12 +76,18 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
 
   Future<void> set(ThemeMode mode) async {
     state = mode;
-    await _cache.setString(
-      _key(_userId),
-      mode == ThemeMode.light
-          ? 'light'
-          : (mode == ThemeMode.dark ? 'dark' : 'system'),
-    );
+    final value = mode == ThemeMode.light
+        ? 'light'
+        : (mode == ThemeMode.dark ? 'dark' : 'system');
+    await _cache.setString(_key(_userId), value);
+    // Mirror to the portal's key so the two clients read the same value.
+    // `system` is not one of the portal's values, so it is cleared rather than
+    // written — a stray 'system' there would confuse the web client.
+    if (mode == ThemeMode.system) {
+      await _cache.remove(portalKey);
+    } else {
+      await _cache.setString(portalKey, value);
+    }
   }
 }
 
@@ -90,7 +111,8 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 SwitchListTile(
                   title: const Text('Push notifications'),
-                  subtitle: const Text('Receive announcements, due dates, and grades.'),
+                  subtitle: const Text(
+                      'Receive announcements, due dates, and grades.'),
                   value: pushEnabled,
                   onChanged: (v) async {
                     if (v) {
@@ -115,19 +137,22 @@ class SettingsScreen extends ConsumerWidget {
                   title: const Text('System theme'),
                   value: ThemeMode.system,
                   groupValue: mode,
-                  onChanged: (v) => ref.read(themeModeProvider.notifier).set(v!),
+                  onChanged: (v) =>
+                      ref.read(themeModeProvider.notifier).set(v!),
                 ),
                 RadioListTile<ThemeMode>(
                   title: const Text('Light'),
                   value: ThemeMode.light,
                   groupValue: mode,
-                  onChanged: (v) => ref.read(themeModeProvider.notifier).set(v!),
+                  onChanged: (v) =>
+                      ref.read(themeModeProvider.notifier).set(v!),
                 ),
                 RadioListTile<ThemeMode>(
                   title: const Text('Dark'),
                   value: ThemeMode.dark,
                   groupValue: mode,
-                  onChanged: (v) => ref.read(themeModeProvider.notifier).set(v!),
+                  onChanged: (v) =>
+                      ref.read(themeModeProvider.notifier).set(v!),
                 ),
               ],
             ),
