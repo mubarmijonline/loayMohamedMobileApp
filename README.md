@@ -184,6 +184,70 @@ The `StudentRepository` falls back to the existing `/student/api/*` and
 `/api/student/*` routes when v1 returns 404, so the app works with the
 current backend during the migration window.
 
+## Security
+
+Full detail — including what is genuinely enforced and what is only detection —
+is in [`lib/core/security/README.md`](lib/core/security/README.md). Read that
+before changing anything in `lib/core/security/`.
+
+The short version:
+
+| Control | Android | iOS |
+|---|---|---|
+| Screenshot | **Blocked** (`FLAG_SECURE`, set in `MainActivity.onCreate`) | **Cannot be blocked or blanked** — detected after the fact and attributed to the student |
+| Screen recording | **Blocked** (plays back black) | Detected; playback pauses behind an opaque panel |
+| App-switcher preview | Hidden by `FLAG_SECURE` | Covered on `applicationWillResignActive` |
+| External display / AirPlay | Detected | Detected; playback blocked |
+| Rooted / jailbroken device | Video playback refused | Video playback refused |
+
+Everything goes through `ScreenGuard` — no feature talks to the platform
+channel directly.
+
+**The watermark is the layer that matters.** It does not stop a leak; it makes
+one attributable, which is what actually changes behaviour. It carries
+`full name · phone · user id`, is drawn twice, drifts every 20-30s, and is
+present in fullscreen.
+
+### Runtime protection gate
+
+If the platform cannot **confirm** capture protection is live, the player
+refuses to render and shows a blocking message instead. An app that believes it
+is protected and is not is worse than one that never tried. See
+`playbackPermissionProvider`.
+
+### Capture reporting — pending backend work
+
+There is no capture-report endpoint in the API contract. Screenshot and
+recording events are queued locally by `CaptureEventQueue` and never posted.
+**The backend team needs to add a route**; until then the queue is the handover
+point. Events are not invented, and not dropped.
+
+### Release builds
+
+Obfuscate and keep the symbols — you need them to read crash reports:
+
+```bash
+flutter build apk --release -t lib/main_prod.dart \
+  --obfuscate --split-debug-info=build/symbols/android \
+  --dart-define=API_BASE_URL=https://loaymotawie.com \
+  --dart-define=SPKI_PINS=<primary>,<backup>
+
+flutter build ipa --release -t lib/main_prod.dart \
+  --obfuscate --split-debug-info=build/symbols/ios \
+  --dart-define=API_BASE_URL=https://loaymotawie.com \
+  --dart-define=SPKI_PINS=<primary>,<backup>
+```
+
+Archive `build/symbols/` with each release build. Without it a release stack
+trace is unreadable.
+
+**Certificate pinning is off until `SPKI_PINS` is supplied.** That is
+deliberate — a wrong pin bricks every installed copy until the next store
+review, which is worse than no pinning. Generate the pins with the `openssl`
+command in `lib/core/security/certificate_pinning.dart`, and always ship a
+backup pin so a certificate rotation does not kill the installed base.
+
+
 ## Testing
 
 ```bash

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/providers.dart';
@@ -14,13 +16,13 @@ final studentRepositoryProvider = Provider<StudentRepository>(
 /// payload omits them.
 final dashboardProvider = FutureProvider<StudentDashboard>((ref) async {
   final repo = ref.read(studentRepositoryProvider);
+  // `/student/subjects` and `/student/enrollments` are deliberately NOT
+  // fetched here. The first is a browse catalogue that must never reach this
+  // screen, and the second is empty for everyone (BACKEND_FIXES.md item 4).
+  // Requesting them cost two round trips per dashboard load and existed only
+  // to feed fallbacks that produced wrong answers.
   final results = await Future.wait([
     repo.dashboard().then<Object?>((v) => v).catchError((_) => null),
-    repo.subjects().then<Object?>((v) => v).catchError((_) => <Subject>[]),
-    repo
-        .enrollments()
-        .then<Object?>((v) => v)
-        .catchError((_) => <Enrollment>[]),
     repo.quizzes().then<Object?>((v) => v).catchError((_) => <Assignment>[]),
     repo
         .assignments(type: 'homework')
@@ -30,34 +32,31 @@ final dashboardProvider = FutureProvider<StudentDashboard>((ref) async {
   ]);
 
   final dash = results[0] as StudentDashboard?;
-  final subs = (results[1] as List<Subject>? ?? const <Subject>[]);
-  final enrollments = (results[2] as List<Enrollment>? ?? const <Enrollment>[]);
-  final quizzes = (results[3] as List<Assignment>? ?? const <Assignment>[]);
-  final homework = (results[4] as List<Assignment>? ?? const <Assignment>[]);
-  final contents = (results[5] as List<ContentItem>? ?? const <ContentItem>[]);
+  final quizzes = (results[1] as List<Assignment>? ?? const <Assignment>[]);
+  final homework = (results[2] as List<Assignment>? ?? const <Assignment>[]);
+  final contents = (results[3] as List<ContentItem>? ?? const <ContentItem>[]);
 
-  // Build the enrolled-subjects list:
-  // 1) Prefer the dashboard's `classes` (already enrolled).
-  // 2) Otherwise, intersect the full subjects feed with active enrollments.
-  // 3) As a last resort, fall back to whatever subjects we got.
-  List<Subject> subjects;
-  if (dash?.subjects.isNotEmpty == true) {
-    subjects = dash!.subjects;
-  } else if (enrollments.isNotEmpty) {
-    final enrolledIds = enrollments
-        .where((e) => e.status == 'active' || e.status.isEmpty)
-        .map((e) => e.subjectId)
-        .toSet();
-    final filtered =
-        subs.where((s) => enrolledIds.contains(s.id)).toList(growable: false);
-    subjects = filtered.isNotEmpty ? filtered : subs;
-  } else {
-    subjects = subs;
-  }
-  // Mirror the count to the resolved subjects list so the dashboard's
-  // "Subjects" tile matches "Your subjects" below it. Some servers return
-  // enrollments without an explicit "active" status, which previously caused
-  // the tile to read 0 even though the student had subjects.
+  // The enrolled-subjects list is `/student/dashboard`'s `classes` array, and
+  // nothing else.
+  //
+  // There is no fallback, deliberately. This used to end with
+  // `subjects = subs` — the unfiltered `/student/subjects` catalogue — so a
+  // student enrolled in nothing was shown all 22 subjects in the system as
+  // "Your subjects", each of which then failed on open. Verified against a
+  // live response on 2026-09-06: `classes: []`, `enrollments: []`, and the
+  // screen still listed 22.
+  //
+  // The intersect-with-enrollments branch was also removed. It could never
+  // match: `enrollments.subject_id` refers to the `subjects` collection while
+  // `Subject.id` comes from `teacher_classes`, and those never share ids
+  // (BACKEND_FIXES.md items 1 and 2). It only ever fell through to `subs`,
+  // which is how the catalogue leaked.
+  //
+  // An empty list is the correct answer for a student with no enrollments.
+  // Do not add a fallback here; `subs` is a browse catalogue, not a roster.
+  final subjects = dash?.subjects ?? const <Subject>[];
+  // The "Subjects" tile counts the same list rendered below it, so the two
+  // can never disagree.
   final enrolledCount = subjects.length;
   final quizCount = quizzes.length;
   final assignmentCount = homework.length;
@@ -93,31 +92,41 @@ final subjectsProvider = FutureProvider<List<Subject>>(
   (ref) => ref.read(studentRepositoryProvider).subjects(),
 );
 
-/// Subjects suggested for the signed-in student to enrol in. Calls the
-/// `/student/subjects?filter=available&grade=<n>` endpoint so the user only
-/// sees subjects matching their profile grade that they're not already
-/// enrolled in / requested. Returns an empty list silently on any error so
-/// the suggestion section can simply hide.
-final suggestedSubjectsProvider = FutureProvider<List<Subject>>((ref) async {
-  final user = ref.watch(authControllerProvider).user;
-  final gradeStr = user?.grade;
-  final grade = gradeStr == null ? null : int.tryParse(gradeStr.trim());
-  if (grade == null) return const <Subject>[];
-  try {
-    return await ref
-        .read(studentRepositoryProvider)
-        .subjects(filter: 'available', grade: grade);
-  } catch (_) {
-    return const <Subject>[];
-  }
-});
-
+/// The subjects this student is enrolled in.
+///
+/// Built from `GET /student/dashboard`'s `classes` array, and ONLY from there.
+///
+/// `GET /student/subjects` cannot be used for this. Backend confirmed
+/// 2026-09-06 (`mobile_api/__init__.py:729`) that the route compares
+/// `teacher_classes._id` against `enrollments.subject_id`, and those point at
+/// two different collections that never share ids. The consequence is that
+/// `is_enrolled` is permanently false, `enrollment_status` is permanently
+/// "none", `counts.enrolled` is permanently 0, and `filter=enrolled` returns
+/// an empty list. The flags are not unreliable; they are constant.
+///
+/// The dashboard route works because it resolves classes through
+/// `class_students.class_id -> teacher_classes._id` (`:199`), the same helper
+/// the web portal uses everywhere. Every mobile route built on that helper is
+/// sound; every route that reaches for `enrollments` or `subjects` is not.
+///
+/// Do not "improve" this by consulting `/student/subjects` — it briefly did,
+/// and the two failure modes were showing the entire catalogue as enrolled
+/// (when the flags defaulted open) and showing nothing at all (when the
+/// filter was trusted).
 final enrolledSubjectsProvider = FutureProvider<List<Subject>>((ref) async {
   final dashboard = await ref.read(dashboardProvider.future).catchError(
-      (_) => const StudentDashboard(subjects: [], overallCompletion: 0));
-  final subjects =
-      await ref.read(subjectsProvider.future).catchError((_) => <Subject>[]);
-  return dashboard.subjects.isNotEmpty ? dashboard.subjects : subjects;
+        (_) => const StudentDashboard(subjects: [], overallCompletion: 0),
+      );
+  return dashboard.subjects;
+});
+
+/// True when [subjectId] is one of the student's own classes.
+///
+/// The only trustworthy enrollment signal available to the client, for the
+/// reasons above.
+final isEnrolledInProvider = Provider.family<bool, String>((ref, subjectId) {
+  final mine = ref.watch(enrolledSubjectsProvider).valueOrNull ?? const [];
+  return mine.any((s) => s.id == subjectId || s.classId == subjectId);
 });
 
 final subjectProvider = FutureProvider.family<Subject, String>(
@@ -140,9 +149,56 @@ final subjectNameProvider = Provider.family<String?, String>((ref, id) {
   return null;
 });
 
+/// `GET /student/subjects/<id>/lessons`.
+///
+/// **This route cannot succeed for any input.** Backend confirmed 2026-09-06
+/// (`mobile_api/__init__.py:872`) that it takes one id and checks it against
+/// two collections that never share ids:
+///
+///   * `teacher_classes.find_one({_id: oid})`      -> a teacher_classes id
+///   * `enrollments.find_one({subject_id: oid})`   -> a subjects id
+///
+/// Pass a class id and the enrollment lookup misses: `403 not_enrolled`. Pass
+/// a subject id and the first lookup misses: `410 subject_closed`. There is no
+/// third option.
+///
+/// Nothing in the app calls this. Lesson content comes from
+/// `GET /student/content`, which resolves classes through the helper that
+/// works. Kept only so the breakage stays documented at the call site rather
+/// than being rediscovered.
+@Deprecated(
+  'Broken server-side: /lessons checks one id against two collections and can '
+  'never return lessons. Use contentsProvider instead. See '
+  'docs/mobile/BACKEND_FIXES.md.',
+)
 final lessonsProvider = FutureProvider.family<List<Lesson>, String>(
   (ref, subjectId) => ref.read(studentRepositoryProvider).lessons(subjectId),
 );
+
+/// `GET /student/classes` — the Videos screen headers.
+final studentClassesProvider = FutureProvider<List<StudentClass>>(
+  (ref) => ref.read(studentRepositoryProvider).classes(),
+);
+
+/// `/student/content`, grouped the way the portal groups it.
+///
+/// The grouping is done here rather than in a widget so the ordering rule
+/// lives in one place and is unit-testable.
+final contentSectionsProvider =
+    FutureProvider<List<ContentSection>>((ref) async {
+  final items = await ref.watch(contentsProvider.future);
+  // Headers are a nicety; a failure to load them must not empty the screen.
+  final classes = await ref
+      .watch(studentClassesProvider.future)
+      .catchError((_) => <StudentClass>[]);
+  return ContentSection.group(items, classes: classes);
+});
+
+/// Thumbnail bytes for one content item, fetched with the auth header.
+final contentThumbnailProvider =
+    FutureProvider.family<Uint8List?, String>((ref, contentId) {
+  return ref.read(studentRepositoryProvider).contentThumbnail(contentId);
+});
 
 final enrollmentsProvider = FutureProvider<List<Enrollment>>(
   (ref) => ref.read(studentRepositoryProvider).enrollments(),
@@ -253,8 +309,7 @@ final contentResumeProvider = FutureProvider.family<ResumeState, String>(
 // ───────────────── Cloudflare Stream videos (new pipeline) ─────────────────
 
 /// Lists every video assigned to a class, grouped by lesson (group_title).
-final classVideosProvider =
-    FutureProvider.family<ClassVideos, String>(
+final classVideosProvider = FutureProvider.family<ClassVideos, String>(
   (ref, classId) => ref.read(studentRepositoryProvider).classVideos(classId),
 );
 
@@ -263,6 +318,5 @@ final classVideosProvider =
 /// re-asks on resume from background when [PlaybackTicket.isFresh] is false.
 final videoPlaybackProvider =
     FutureProvider.family.autoDispose<PlaybackTicket, String>(
-  (ref, videoId) =>
-      ref.read(studentRepositoryProvider).videoPlayback(videoId),
+  (ref, videoId) => ref.read(studentRepositoryProvider).videoPlayback(videoId),
 );

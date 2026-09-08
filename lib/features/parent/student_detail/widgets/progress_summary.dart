@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_spacing.dart';
 import '../models/progress.dart';
+import '../../../../core/design/app_palette.dart';
 
 class ProgressSummary extends StatelessWidget {
   const ProgressSummary({super.key, required this.report});
@@ -19,8 +20,10 @@ class ProgressSummary extends StatelessWidget {
           height: 160,
           width: 160,
           child: CustomPaint(
-            painter:
-                _GaugePainter(percent: report.overallPercent ?? 0, hasData: report.overallPercent != null),
+            painter: _GaugePainter(
+                trackColor: context.palette.surfaceTinted,
+                percent: report.overallPercent ?? 0,
+                hasData: report.overallPercent != null),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -30,8 +33,7 @@ class ProgressSummary extends StatelessWidget {
                         ? '${report.overallPercent!.toStringAsFixed(1)}%'
                         : '—',
                     style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary),
+                        fontWeight: FontWeight.w800, color: AppColors.primary),
                   ),
                   Text('Overall',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -46,16 +48,14 @@ class ProgressSummary extends StatelessWidget {
         if (report.subjects.isEmpty)
           Text('No subjects yet.',
               style: theme.textTheme.bodySmall?.copyWith(
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.6)))
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6)))
         else
           SizedBox(
             height: 130,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: report.subjects.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(width: AppSpacing.md),
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
               itemBuilder: (_, i) =>
                   _SubjectProgressCard(item: report.subjects[i]),
             ),
@@ -77,7 +77,7 @@ class _SubjectProgressCard extends StatelessWidget {
       width: 180,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Column(
@@ -94,7 +94,7 @@ class _SubjectProgressCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct.toDouble(),
               minHeight: 8,
-              backgroundColor: AppColors.primarySurface,
+              backgroundColor: context.palette.surfaceTinted,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
@@ -112,13 +112,12 @@ class _SubjectProgressCard extends StatelessWidget {
             children: [
               Icon(Icons.event_busy_outlined,
                   size: 14,
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
               const SizedBox(width: 4),
               Text('Absences: ${item.absenceCount}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.7))),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.7))),
             ],
           ),
         ],
@@ -128,16 +127,24 @@ class _SubjectProgressCard extends StatelessWidget {
 }
 
 class _GaugePainter extends CustomPainter {
-  _GaugePainter({required this.percent, required this.hasData});
+  _GaugePainter({
+    required this.percent,
+    required this.hasData,
+    required this.trackColor,
+  });
   final double percent;
   final bool hasData;
+
+  /// Resolved by the caller — a painter has no BuildContext, so the theme has
+  /// to be handed to it rather than read inside paint().
+  final Color trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 10;
     final track = Paint()
-      ..color = AppColors.primarySurface
+      ..color = trackColor
       ..strokeWidth = 12
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -154,5 +161,9 @@ class _GaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GaugePainter oldDelegate) =>
-      oldDelegate.percent != percent || oldDelegate.hasData != hasData;
+      oldDelegate.percent != percent ||
+      oldDelegate.hasData != hasData ||
+      // Without this the gauge keeps its old track colour when the theme
+      // flips while it is on screen.
+      oldDelegate.trackColor != trackColor;
 }

@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext is off everywhere and only system CAs are trusted.
+
+  Trusting user-installed CAs (the previous setting) means any device with a
+  Charles/Burp/mitmproxy root installed can read and rewrite API traffic,
+  including bearer tokens and signed video URLs. That is precisely the attack
+  certificate pinning exists to stop, so leaving it on would have made the
+  pinning work pointless.
+
+  Debug builds get their own override (see network_security_config_debug.xml)
+  so local proxying during development still works.
+-->
 <network-security-config>
-    <!-- Dev: trust user-installed CAs and accept the raw IP API host. Tighten for release. -->
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system"/>
-            <certificates src="user"/>
         </trust-anchors>
     </base-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">136.114.32.40</domain>
-        <trust-anchors>
-            <certificates src="system"/>
-            <certificates src="user"/>
-        </trust-anchors>
-    </domain-config>
 </network-security-config>

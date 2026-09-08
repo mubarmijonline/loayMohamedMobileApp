@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_back_button.dart';
 import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../auth/domain/student_user.dart';
@@ -18,6 +19,7 @@ import 'widgets/quiz_card.dart';
 import 'widgets/section_empty.dart';
 import 'widgets/section_error.dart';
 import 'widgets/section_loading.dart';
+import '../../../core/design/app_palette.dart';
 
 /// Parent → linked-student detail screen. Each of the 5 sections lazy-loads
 /// its data only when the parent expands the section.
@@ -66,7 +68,7 @@ class _ParentStudentDetailScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.palette.background,
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
@@ -125,8 +127,8 @@ class _ParentStudentDetailScreenState
                     'Pull down to refresh.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5)),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                 ]),
@@ -152,15 +154,11 @@ class _Header extends StatelessWidget {
       expandedHeight: 220,
       pinned: true,
       backgroundColor: AppColors.primary,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-            color: Colors.white),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
+      leading: const AppBackButton(),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: const BoxDecoration(
-              gradient: AppColors.authBackgroundGradient),
+          decoration:
+              const BoxDecoration(gradient: AppColors.authBackgroundGradient),
           child: SafeArea(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -169,10 +167,9 @@ class _Header extends StatelessWidget {
                 CircleAvatar(
                   radius: 44,
                   backgroundColor: Colors.white.withValues(alpha: 0.15),
-                  backgroundImage:
-                      (student.avatarUrl?.isNotEmpty ?? false)
-                          ? NetworkImage(student.avatarUrl!)
-                          : null,
+                  backgroundImage: (student.avatarUrl?.isNotEmpty ?? false)
+                      ? NetworkImage(student.avatarUrl!)
+                      : null,
                   child: (student.avatarUrl?.isNotEmpty ?? false)
                       ? null
                       : Text(
@@ -188,7 +185,7 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 Text(student.name,
                     style: theme.textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
+                        color: context.palette.onBrand,
                         fontWeight: FontWeight.w700)),
                 if (student.grade?.isNotEmpty ?? false) ...[
                   const SizedBox(height: 2),
@@ -250,7 +247,7 @@ class _LazySectionState extends State<_LazySection> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: [
           BoxShadow(
@@ -287,8 +284,8 @@ class _LazySectionState extends State<_LazySection> {
                     turns: _open ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 180),
                     child: Icon(Icons.expand_more_rounded,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5)),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                 ],
               ),
@@ -344,8 +341,7 @@ class _QuizzesBody extends ConsumerWidget {
     return async.when(
       loading: () => const SectionLoading(),
       error: (e, _) => SectionError(
-          error: e,
-          onRetry: () => ref.invalidate(quizzesProvider(studentId))),
+          error: e, onRetry: () => ref.invalidate(quizzesProvider(studentId))),
       data: (items) => items.isEmpty
           ? const SectionEmpty(
               icon: Icons.quiz_outlined, label: 'No quizzes yet.')
@@ -364,8 +360,7 @@ class _ProgressBody extends ConsumerWidget {
     return async.when(
       loading: () => const SectionLoading(),
       error: (e, _) => SectionError(
-          error: e,
-          onRetry: () => ref.invalidate(progressProvider(studentId))),
+          error: e, onRetry: () => ref.invalidate(progressProvider(studentId))),
       data: (report) => ProgressSummary(report: report),
     );
   }
@@ -386,8 +381,7 @@ class _AttendanceBody extends ConsumerWidget {
       data: (data) {
         if (data.records.isEmpty && data.summary.total == 0) {
           return const SectionEmpty(
-              icon: Icons.event_busy_outlined,
-              label: 'No attendance records.');
+              icon: Icons.event_busy_outlined, label: 'No attendance records.');
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -417,16 +411,14 @@ class _ActivityBody extends ConsumerWidget {
       loading: () => const SectionLoading(),
       error: (e, _) => SectionError(
           error: e,
-          onRetry: () =>
-              ref.invalidate(notificationsProvider(studentId))),
+          onRetry: () => ref.invalidate(notificationsProvider(studentId))),
       data: (items) => items.isEmpty
           ? const SectionEmpty(
-              icon: Icons.notifications_none_rounded,
-              label: 'No activity yet.')
+              icon: Icons.notifications_none_rounded, label: 'No activity yet.')
           : Column(
               children: items
-                  .map((n) => ActivityNotificationCard(
-                      studentId: studentId, item: n))
+                  .map((n) =>
+                      ActivityNotificationCard(studentId: studentId, item: n))
                   .toList(),
             ),
     );

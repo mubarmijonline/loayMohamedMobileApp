@@ -19,7 +19,8 @@ class AnnouncementsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Announcements')),
       body: RefreshIndicator(
         color: AppColors.secondary,
-        onRefresh: () async => ref.refresh(announcementsProvider('global').future),
+        onRefresh: () async =>
+            ref.refresh(announcementsProvider('global').future),
         child: list.when(
           loading: () => ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -48,7 +49,8 @@ class AnnouncementsScreen extends ConsumerWidget {
               : ListView.separated(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.sm),
                   itemBuilder: (_, i) {
                     final a = items[i];
                     return PremiumCard(
@@ -58,23 +60,33 @@ class AnnouncementsScreen extends ConsumerWidget {
                           Row(
                             children: [
                               Container(
-                                width: 40, height: 40,
+                                width: 40,
+                                height: 40,
                                 decoration: BoxDecoration(
                                   gradient: AppColors.cyanGradient,
-                                  borderRadius: BorderRadius.circular(AppRadius.md),
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.md),
                                 ),
-                                child: const Icon(Icons.campaign_rounded, color: Colors.white),
+                                child: const Icon(Icons.campaign_rounded,
+                                    color: Colors.white),
                               ),
                               const SizedBox(width: AppSpacing.sm),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(a.title, style: theme.textTheme.titleSmall),
+                                    Text(a.title,
+                                        style: theme.textTheme.titleSmall),
                                     Text(
-                                      DateFormat.yMMMd().add_jm().format(a.publishedAt),
+                                      DateFormat.yMMMd()
+                                          .add_jm()
+                                          .format(a.publishedAt),
                                       style: theme.textTheme.labelSmall
-                                          ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65)),
+                                          ?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withValues(alpha: 0.65)),
                                     ),
                                   ],
                                 ),

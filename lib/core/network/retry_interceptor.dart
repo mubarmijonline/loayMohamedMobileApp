@@ -13,7 +13,8 @@ class RetryInterceptor extends Interceptor {
   static const _retriableMethods = {'GET', 'HEAD'};
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+      DioException err, ErrorInterceptorHandler handler) async {
     final req = err.requestOptions;
     final attempt = (req.extra['retry_attempt'] as int?) ?? 0;
     final method = req.method.toUpperCase();

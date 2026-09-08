@@ -6,9 +6,8 @@ import '../../../../core/error/error_mapper.dart';
 import '../../../../core/providers.dart';
 import '../models/quiz.dart';
 
-final quizzesProvider =
-    FutureProvider.family.autoDispose<List<Quiz>, String>(
-        (ref, studentId) async {
+final quizzesProvider = FutureProvider.family
+    .autoDispose<List<Quiz>, String>((ref, studentId) async {
   final api = ref.read(apiClientProvider);
   final v1 = AppEnv.I.apiV1Prefix;
   try {

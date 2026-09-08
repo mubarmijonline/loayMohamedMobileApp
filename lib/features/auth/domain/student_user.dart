@@ -55,22 +55,28 @@ class StudentUser extends Equatable {
   final String? school;
   final String? avatarUrl;
   final String? grade;
+
   /// Populated for parent accounts — list of students linked to this parent.
   final List<LinkedStudent> linkedStudents;
 
   bool get isStudent => role.toLowerCase() == 'student';
   bool get isParent => role.toLowerCase() == 'parent';
 
-  /// True if the email is an Apple "Hide My Email" relay address. Such users
-  /// are forced through the Complete-Profile screen so they can enter a real
-  /// reachable address.
+  /// True if the email is an Apple "Hide My Email" relay address.
+  ///
+  /// Apple sign-in has been removed from the app, so no NEW account can arrive
+  /// with one. This is kept because accounts created before that removal still
+  /// carry relay addresses server-side, and `PATCH /student/profile` rejects
+  /// them with `422 relay_email_not_allowed` (API_BRIEF §3). Such users are
+  /// still routed through Complete-Profile to enter a reachable address.
   bool get hasApplePrivateRelayEmail =>
       email.toLowerCase().endsWith('@privaterelay.appleid.com');
 
   /// Returns true when one or more of the fields required to actually use the
-  /// app (mobile, parent mobile, school, grade) is missing. Used to gate the
-  /// app behind the "Complete your profile" screen for users who came in via
-  /// Apple/Google sign-in (those flows usually only have name + email).
+  /// app (mobile, parent mobile, school, grade) is missing. Gates the app
+  /// behind the "Complete your profile" screen. Registration collects all of
+  /// these, so in practice this now catches legacy accounts created through
+  /// the removed social sign-in flows, which only had name + email.
   bool get isProfileComplete {
     bool _has(String? v) => (v ?? '').trim().isNotEmpty;
     return _has(phone) &&
@@ -87,7 +93,10 @@ class StudentUser extends Equatable {
       email: (json['email'] ?? '').toString(),
       role: (json['role'] ?? 'student').toString(),
       phone: (json['phone'] ?? json['mobile'])?.toString(),
-      parentPhone: (json['parent_phone'] ?? json['guardian_phone'] ?? json['parent_mobile'])?.toString(),
+      parentPhone: (json['parent_phone'] ??
+              json['guardian_phone'] ??
+              json['parent_mobile'])
+          ?.toString(),
       school: (json['school'] ?? json['school_name'])?.toString(),
       avatarUrl: (json['avatar_url'] ??
               json['avatar'] ??
@@ -99,7 +108,8 @@ class StudentUser extends Equatable {
           ?.toString(),
       grade: json['grade']?.toString(),
       linkedStudents: (json['linked_students'] as List<dynamic>? ?? [])
-          .map((e) => LinkedStudent.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map((e) =>
+              LinkedStudent.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
     );
   }
@@ -125,7 +135,8 @@ class StudentUser extends Equatable {
     String? avatarUrl,
     String? grade,
     List<LinkedStudent>? linkedStudents,
-  }) => StudentUser(
+  }) =>
+      StudentUser(
         id: id,
         name: name ?? this.name,
         email: email,
@@ -139,5 +150,16 @@ class StudentUser extends Equatable {
       );
 
   @override
-  List<Object?> get props => [id, name, email, role, phone, parentPhone, school, avatarUrl, grade, linkedStudents];
+  List<Object?> get props => [
+        id,
+        name,
+        email,
+        role,
+        phone,
+        parentPhone,
+        school,
+        avatarUrl,
+        grade,
+        linkedStudents
+      ];
 }

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
 
 class Subject extends Equatable {
@@ -23,6 +25,19 @@ class Subject extends Equatable {
   final double? completionPercent; // 0..1
   final String? enrollmentStatus; // active|pending|none
 
+  /// Actively enrolled — the student may open lessons and content.
+  ///
+  /// `pending` is NOT enrolled: the request exists but has not been approved,
+  /// and every content route will still answer `403 not_enrolled`.
+  bool get isEnrolled => enrollmentStatus == 'active';
+
+  bool get isPendingEnrollment => enrollmentStatus == 'pending';
+
+  /// The server said, one way or the other. Dashboard `classes` carry no
+  /// status field (they are enrolled by definition), so null means "unknown",
+  /// never "not enrolled".
+  bool get hasEnrollmentStatus => enrollmentStatus != null;
+
   factory Subject.fromJson(Map<String, dynamic> j) {
     // The backend sometimes returns the lesson count under different keys
     // (or not at all), but always sends the actual lessons array under
@@ -32,11 +47,12 @@ class Subject extends Equatable {
     final rawLessons = j['lessons'];
     if ((derivedCount == null || derivedCount == 0) && rawLessons is List) {
       derivedCount = rawLessons.length;
-    } else if (derivedCount == null && rawLessons is num) {
-      derivedCount = rawLessons.toInt();
+    } else if (derivedCount == null && rawLessons != null) {
+      // `lessons` may arrive as a bare count, and as a numeric *string* —
+      // _toInt handles both. Matching only `num` here silently dropped "12".
+      derivedCount = _toInt(rawLessons);
     }
-    if ((derivedCount == null || derivedCount == 0) &&
-        j['contents'] is List) {
+    if ((derivedCount == null || derivedCount == 0) && j['contents'] is List) {
       derivedCount = (j['contents'] as List).length;
     }
     return Subject(
@@ -56,13 +72,13 @@ class Subject extends Equatable {
   List<Object?> get props => [
         id,
         name,
-      classId,
+        classId,
         description,
         coverUrl,
         grade,
         lessonsCount,
         completionPercent,
-        enrollmentStatus
+        enrollmentStatus,
       ];
 }
 
@@ -110,37 +126,77 @@ class ContentItem extends Equatable {
     required this.title,
     required this.type,
     this.lessonId,
+    this.classId,
     this.subjectId,
     this.className,
+    this.groupTitle,
+    this.orderIndex,
     this.description,
     this.duration,
     this.thumbnailUrl,
+    this.provider,
     this.watched = false,
     this.createdAt,
   });
 
   final String id;
   final String title;
-  final String type; // video, pdf, article
+  final String type; // video, handout, link
   final String? lessonId;
+
+  /// The `teacher_classes` id this item belongs to. Sections break on it.
+  final String? classId;
+
   final String? subjectId;
   final String? className;
+
+  /// The folder name the teacher set.
+  ///
+  /// **Never null from the API**: items with no group arrive as the literal
+  /// `"(Ungrouped)"`, so it renders as its own section with no special case
+  /// (API_BRIEF §6).
+  final String? groupTitle;
+
+  /// The `#1` / `#2` badge. Per group, not global.
+  final int? orderIndex;
+
   final String? description;
   final Duration? duration;
+
+  /// `/api/v1/student/content/<id>/thumbnail`, or null when the item has no
+  /// poster. **Token-protected** — it needs the auth header, so a plain
+  /// `Image.network` gets a 401.
   final String? thumbnailUrl;
+
+  final String? provider; // bunny | cloudflare | drive | null
   final bool watched;
   final DateTime? createdAt;
+
+  /// `mm:ss`, matching the portal's card badge.
+  String get durationLabel {
+    final d = duration;
+    if (d == null || d == Duration.zero) return '';
+    String two(int n) => n.toString().padLeft(2, '0');
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    final s = d.inSeconds % 60;
+    return h > 0 ? '$h:${two(m)}:${two(s)}' : '${two(m)}:${two(s)}';
+  }
 
   factory ContentItem.fromJson(Map<String, dynamic> j) => ContentItem(
         id: (j['_id'] ?? j['id'] ?? j['content_id'] ?? '').toString(),
         title: (j['title'] ?? j['name'] ?? '').toString(),
         type: (j['type'] ?? 'video').toString(),
         lessonId: j['lesson_id']?.toString(),
+        classId: j['class_id']?.toString(),
         subjectId: (j['subject_id'] ?? j['class_id'])?.toString(),
         className: (j['class_name'] ?? j['subject_title'])?.toString(),
+        groupTitle: j['group_title']?.toString(),
+        orderIndex: _toInt(j['order_index']),
         description: j['description']?.toString(),
         duration: _toDuration(j['duration'] ?? j['duration_seconds']),
         thumbnailUrl: j['thumbnail_url']?.toString(),
+        provider: j['provider']?.toString(),
         watched: j['watched'] == true,
         createdAt: _toDate(j['created_at']),
       );
@@ -151,35 +207,389 @@ class ContentItem extends Equatable {
         title,
         type,
         lessonId,
+        classId,
         subjectId,
         className,
+        groupTitle,
+        orderIndex,
         description,
         duration,
         thumbnailUrl,
+        provider,
         watched,
         createdAt,
       ];
 }
 
-class ContentEmbed extends Equatable {
-  const ContentEmbed({required this.embedUrl, this.duration, this.provider});
-  final String embedUrl;
-  final Duration? duration;
-  final String? provider;
+/// One class, from `GET /student/classes` (API_BRIEF §6).
+///
+/// Fills the section header on the Videos screen: the title, and the
+/// "6/10 watched" pill.
+class StudentClass extends Equatable {
+  const StudentClass({
+    required this.id,
+    required this.name,
+    this.level,
+    this.subject,
+    this.teacherName,
+    this.coverUrl,
+    this.examBoard,
+    this.isActive = true,
+    this.videoTotal = 0,
+    this.videoWatched = 0,
+    this.homeworkTotal = 0,
+    this.homeworkDone = 0,
+    this.quizTotal = 0,
+    this.quizDone = 0,
+    this.completionPercent = 0,
+  });
 
-  factory ContentEmbed.fromJson(Map<String, dynamic> j) => ContentEmbed(
-        embedUrl: (j['embed_url'] ?? j['url'] ?? '').toString(),
-        duration: _toDuration(j['duration'] ?? j['duration_seconds']),
-        provider: j['provider']?.toString(),
+  final String id;
+  final String name;
+  final String? level;
+  final String? subject;
+  final String? teacherName;
+  final String? coverUrl;
+  final String? examBoard;
+  final bool isActive;
+
+  final int videoTotal;
+  final int videoWatched;
+  final int homeworkTotal;
+  final int homeworkDone;
+  final int quizTotal;
+  final int quizDone;
+  final num completionPercent;
+
+  /// "6/10 watched".
+  String get watchedLabel => '$videoWatched/$videoTotal watched';
+
+  factory StudentClass.fromJson(Map<String, dynamic> j) => StudentClass(
+        id: (j['_id'] ?? j['id'] ?? '').toString(),
+        name: (j['name'] ?? j['title'] ?? '').toString(),
+        level: j['level']?.toString(),
+        subject: j['subject']?.toString(),
+        teacherName: j['teacher_name']?.toString(),
+        coverUrl: j['cover_url']?.toString(),
+        examBoard: j['exam_board']?.toString(),
+        isActive: j['is_active'] != false,
+        videoTotal: _toInt(j['video_total']) ?? 0,
+        videoWatched: _toInt(j['video_watched']) ?? 0,
+        homeworkTotal: _toInt(j['homework_total']) ?? 0,
+        homeworkDone: _toInt(j['homework_done']) ?? 0,
+        quizTotal: _toInt(j['quiz_total']) ?? 0,
+        quizDone: _toInt(j['quiz_done']) ?? 0,
+        completionPercent: _toNum(j['completion_percent']) ?? 0,
       );
 
   @override
-  List<Object?> get props => [embedUrl, duration, provider];
+  List<Object?> get props => [id, name, videoTotal, videoWatched];
+}
+
+/// A run of content sharing one `group_title`, within one class.
+class ContentGroup extends Equatable {
+  const ContentGroup({required this.title, required this.items});
+
+  final String title;
+  final List<ContentItem> items;
+
+  @override
+  List<Object?> get props => [title, items];
+}
+
+/// One class and its groups, ready to render.
+class ContentSection extends Equatable {
+  const ContentSection({
+    required this.classId,
+    required this.className,
+    required this.groups,
+    this.studentClass,
+  });
+
+  final String classId;
+  final String className;
+  final List<ContentGroup> groups;
+
+  /// The matching `/student/classes` row, when one was found. Carries the
+  /// watched pill.
+  final StudentClass? studentClass;
+
+  int get videoCount => groups.fold(0, (a, g) => a + g.items.length);
+
+  /// "4 groups • 10 videos" — computed client-side, as the portal does.
+  String get summary {
+    final g = groups.length;
+    final v = videoCount;
+    return '$g ${g == 1 ? 'group' : 'groups'} • $v ${v == 1 ? 'video' : 'videos'}';
+  }
+
+  /// Groups a flat `/student/content` response the way the portal does.
+  ///
+  /// **The list arrives already sorted by
+  /// `(class_id, group_title, order_index, created_at)`.** Walk it once in the
+  /// order given and open a new section whenever `class_id` or `group_title`
+  /// changes.
+  ///
+  /// Do not re-sort, and specifically do not sort by `created_at` — that was
+  /// the old mobile behaviour, and it is what produced a flat undivided list
+  /// with no course title above it.
+  static List<ContentSection> group(
+    List<ContentItem> items, {
+    List<StudentClass> classes = const [],
+  }) {
+    final byId = {for (final c in classes) c.id: c};
+    final sections = <ContentSection>[];
+
+    String? currentClass;
+    String? currentGroup;
+    var groups = <ContentGroup>[];
+    var bucket = <ContentItem>[];
+
+    void closeGroup() {
+      if (bucket.isNotEmpty) {
+        groups.add(
+            ContentGroup(title: currentGroup ?? '(Ungrouped)', items: bucket));
+        bucket = <ContentItem>[];
+      }
+    }
+
+    void closeSection() {
+      closeGroup();
+      if (groups.isNotEmpty) {
+        final id = currentClass ?? '';
+        sections.add(ContentSection(
+          classId: id,
+          className:
+              byId[id]?.name ?? groups.first.items.first.className ?? 'Course',
+          groups: groups,
+          studentClass: byId[id],
+        ));
+        groups = <ContentGroup>[];
+      }
+    }
+
+    for (final item in items) {
+      final cls = item.classId ?? item.subjectId ?? '';
+      final grp = item.groupTitle ?? '(Ungrouped)';
+      if (cls != currentClass) {
+        closeSection();
+        currentClass = cls;
+        currentGroup = grp;
+      } else if (grp != currentGroup) {
+        closeGroup();
+        currentGroup = grp;
+      }
+      bucket.add(item);
+    }
+    closeSection();
+    return sections;
+  }
+
+  @override
+  List<Object?> get props => [classId, className, groups];
+}
+
+/// Which service is serving this video (API_BRIEF §6).
+///
+/// Precedence is resolved server-side: bunny > cloudflare > drive.
+enum VideoProvider {
+  /// Signed iframe, expires (default 1 hour). Backend also returns the
+  /// watermark string.
+  bunny,
+
+  /// Unsigned iframe URL.
+  cloudflare,
+
+  /// Unsigned, permanent, and **identical for every student**. Everything
+  /// protecting Drive content lives in the client and in the Drive file's own
+  /// sharing settings.
+  drive,
+
+  unknown;
+
+  static VideoProvider parse(Object? v) => switch (v?.toString()) {
+        'bunny' => VideoProvider.bunny,
+        'cloudflare' => VideoProvider.cloudflare,
+        'drive' => VideoProvider.drive,
+        _ => VideoProvider.unknown,
+      };
+
+  /// Only Bunny URLs carry an expiry; the others never go stale.
+  bool get isSigned => this == VideoProvider.bunny;
+}
+
+class ContentEmbed extends Equatable {
+  const ContentEmbed({
+    required this.embedUrl,
+    required this.provider,
+    this.streamUrl,
+    this.duration,
+    this.watermark,
+    this.streamUid,
+    this.bunnyVideoId,
+    this.fetchedAt,
+    this.apiOrigin,
+  });
+
+  /// **Deprecated by the backend.** For Drive this is the unsigned public
+  /// `https://drive.google.com/file/d/<id>/preview`, which anyone can watch
+  /// without an account. Kept only so builds already in the field keep
+  /// working (API_BRIEF §6). Play [streamUrl] instead.
+  final String embedUrl;
+
+  /// The URL to actually play.
+  ///
+  /// For Drive this is `/api/v1/student/content/<id>/drive-stream` on our own
+  /// origin: the backend fetches the bytes with the Drive service account and
+  /// forwards them as `video/mp4` with `Accept-Ranges: bytes`, honouring the
+  /// client's `Range` header. The Drive file id never reaches the device,
+  /// there is no Google player, and so there is no share button, pop-out or
+  /// download item to hide.
+  ///
+  /// For Bunny and Cloudflare it is the same iframe URL as [embedUrl].
+  final String? streamUrl;
+  final VideoProvider provider;
+  final Duration? duration;
+
+  /// `Full Name · +20… · <user_id>` — returned **only for Bunny**
+  /// (API_BRIEF §6). For Drive and Cloudflare the client must build the same
+  /// string from `/auth/me` and draw it as an overlay.
+  final String? watermark;
+
+  final String? streamUid;
+  final String? bunnyVideoId;
+
+  /// When this embed was minted locally. Used to decide whether a signed URL
+  /// has aged past its TTL while the player sat open.
+  final DateTime? fetchedAt;
+
+  /// Our own API origin, e.g. `https://loaymotawie.com`.
+  ///
+  /// Set by [resolvedAgainst] at the repository boundary. Two things depend on
+  /// it: turning the backend's relative `stream_url` into something a player
+  /// can actually open, and deciding whether the URL is ours (native player,
+  /// bearer token) or a third party's (WebView, never a token).
+  final String? apiOrigin;
+
+  /// Makes the URLs absolute and records which origin is ours.
+  ///
+  /// The backend returns `stream_url` as a **path** —
+  /// `/api/v1/student/content/<id>/drive-stream`. Dio resolves those against
+  /// its `baseUrl`; `video_player` and `WebView` do not. Handing either a
+  /// schemeless URI is not an error they report — `Uri.tryParse` returns a
+  /// perfectly valid *relative* Uri, so the null check passes, the platform
+  /// gets something it cannot open, and the player renders black under a
+  /// working watermark. That was the bug.
+  ContentEmbed resolvedAgainst(String origin) {
+    final base = Uri.tryParse(origin);
+    String? abs(String? raw) {
+      if (raw == null || raw.trim().isEmpty) return raw;
+      final u = Uri.tryParse(raw.trim());
+      if (u == null) return raw;
+      if (u.hasScheme) return u.toString();
+      if (base == null) return raw;
+      return base.resolveUri(u).toString();
+    }
+
+    return ContentEmbed(
+      embedUrl: abs(embedUrl) ?? '',
+      streamUrl: abs(streamUrl),
+      provider: provider,
+      duration: duration,
+      watermark: watermark,
+      streamUid: streamUid,
+      bunnyVideoId: bunnyVideoId,
+      fetchedAt: fetchedAt,
+      apiOrigin: base?.origin,
+    );
+  }
+
+  /// Bunny embeds are signed with a default 1 hour TTL
+  /// (`BUNNY_STREAM_EMBED_TTL_SECONDS`). Re-fetch `/embed` past that or the
+  /// iframe starts refusing to play mid-lesson.
+  static const signedTtl = Duration(minutes: 55);
+
+  bool get isStale {
+    if (!provider.isSigned) return false;
+    final at = fetchedAt;
+    if (at == null) return true;
+    return DateTime.now().difference(at) >= signedTtl;
+  }
+
+  bool get hasVideo => playbackUrl.isNotEmpty;
+
+  /// What to hand the player: [streamUrl] when present, [embedUrl] otherwise.
+  ///
+  /// API_BRIEF §6: "Play `stream_url`. Ignore `embed_url` unless `stream_url`
+  /// is missing."
+  String get playbackUrl {
+    final s = streamUrl;
+    if (s != null && s.trim().isNotEmpty) return s;
+    return embedUrl;
+  }
+
+  /// True when [playbackUrl] is our own proxy: raw mp4, on our origin, behind
+  /// the bearer token.
+  ///
+  /// Deliberately keyed on the origin rather than on `provider == drive`.
+  /// `provider` is a free-text field the backend has not always sent, and
+  /// `VideoProvider.parse` turns anything unrecognised into `unknown` — which
+  /// silently routed a perfectly good proxy URL into the WebView, where the
+  /// iframe branch then played `embed_url` (the *public* Drive preview of a
+  /// private file) or nothing at all. Ownership of the URL is the fact that
+  /// actually decides which player can open it.
+  bool get isProxied {
+    final s = streamUrl;
+    final o = apiOrigin;
+    if (s == null || s.trim().isEmpty || o == null) return false;
+    final u = Uri.tryParse(s);
+    if (u == null || !u.hasScheme || !u.hasAuthority) return false;
+    return u.origin == o;
+  }
+
+  /// Our own proxy plays natively; anything third-party stays in the WebView,
+  /// where the navigation allowlist and control-strip overlay apply.
+  bool get needsWebView => !isProxied;
+
+  /// True when the player must send `Authorization` — our own proxy does, a
+  /// third-party iframe must never.
+  bool get needsAuthHeader => isProxied;
+
+  factory ContentEmbed.fromJson(Map<String, dynamic> j) => ContentEmbed(
+        embedUrl: (j['embed_url'] ?? j['url'] ?? '').toString(),
+        streamUrl: j['stream_url']?.toString(),
+        provider: VideoProvider.parse(j['provider']),
+        duration: _toDuration(j['duration'] ?? j['duration_seconds']),
+        watermark: j['watermark']?.toString(),
+        streamUid: j['stream_uid']?.toString(),
+        bunnyVideoId: j['bunny_video_id']?.toString(),
+        fetchedAt: DateTime.now(),
+      );
+
+  /// SECURITY: `embed_url` must never reach logs, crash reports or the
+  /// clipboard. Keep it out of `toString()`.
+  @override
+  String toString() =>
+      'ContentEmbed(provider: ${provider.name}, hasUrl: ${playbackUrl.isNotEmpty})';
+
+  @override
+  List<Object?> get props => [
+        embedUrl,
+        streamUrl,
+        provider,
+        duration,
+        watermark,
+        streamUid,
+        bunnyVideoId,
+        apiOrigin,
+      ];
 }
 
 class ResumeState extends Equatable {
-  const ResumeState(
-      {required this.resumeFromSeconds, required this.completionPercent});
+  const ResumeState({
+    required this.resumeFromSeconds,
+    required this.completionPercent,
+  });
   final int resumeFromSeconds;
   final double completionPercent; // 0..1
 
@@ -224,7 +634,7 @@ class SubjectProgress extends Equatable {
         totalWatchedSeconds,
         completionPercent,
         lessonsCompleted,
-        lessonsTotal
+        lessonsTotal,
       ];
 }
 
@@ -289,6 +699,250 @@ class Announcement extends Equatable {
   List<Object?> get props => [id, title, body, publishedAt, scope, scopeId];
 }
 
+/// One row of the marker's breakdown (API_BRIEF §7, "marking.parts").
+///
+/// `ok` is derived server-side from `awarded == max`; it is not stored.
+class MarkingPart extends Equatable {
+  const MarkingPart({
+    required this.label,
+    this.topic,
+    this.max,
+    this.awarded,
+    this.comment,
+    this.ok = false,
+  });
+
+  final String label;
+  final String? topic;
+  final num? max;
+  final num? awarded;
+  final String? comment;
+  final bool ok;
+
+  factory MarkingPart.fromJson(Map<String, dynamic> j) => MarkingPart(
+        label: (j['label'] ?? '').toString(),
+        topic: j['topic']?.toString(),
+        max: _toNum(j['max']),
+        awarded: _toNum(j['awarded']),
+        comment: j['comment']?.toString(),
+        ok: j['ok'] == true,
+      );
+
+  @override
+  List<Object?> get props => [label, topic, max, awarded, comment, ok];
+}
+
+/// Exam metadata attached to a marked script.
+class MarkingExam extends Equatable {
+  const MarkingExam({this.number, this.session, this.board});
+
+  final String? number;
+  final String? session;
+  final String? board;
+
+  factory MarkingExam.fromJson(Map<String, dynamic> j) => MarkingExam(
+        number: j['number']?.toString(),
+        session: j['session']?.toString(),
+        board: j['board']?.toString(),
+      );
+
+  bool get isEmpty => number == null && session == null && board == null;
+
+  @override
+  List<Object?> get props => [number, session, board];
+}
+
+/// The released marking breakdown (API_BRIEF §7).
+///
+/// Totals are recomputed server-side from `parts`, so the breakdown and the
+/// total can never disagree — render [totalAwarded] / [totalMax] as given
+/// rather than re-summing client-side.
+class Marking extends Equatable {
+  const Marking({
+    this.parts = const [],
+    this.totalAwarded,
+    this.totalMax,
+    this.percentage,
+    this.strengths = const [],
+    this.priorities = const [],
+    this.target,
+    this.exam,
+  });
+
+  final List<MarkingPart> parts;
+  final num? totalAwarded;
+  final num? totalMax;
+  final num? percentage;
+  final List<String> strengths;
+  final List<String> priorities;
+  final String? target;
+  final MarkingExam? exam;
+
+  factory Marking.fromJson(Map<String, dynamic> j) {
+    List<String> strings(Object? v) =>
+        (v as List?)
+            ?.map((e) => e?.toString() ?? '')
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        const [];
+    return Marking(
+      parts: (j['parts'] as List?)
+              ?.whereType<Map>()
+              .map((m) => MarkingPart.fromJson(Map<String, dynamic>.from(m)))
+              .toList() ??
+          const [],
+      totalAwarded: _toNum(j['total_awarded']),
+      totalMax: _toNum(j['total_max']),
+      percentage: _toNum(j['percentage']),
+      strengths: strings(j['strengths']),
+      priorities: strings(j['priorities']),
+      target: j['target']?.toString(),
+      exam: j['exam'] is Map
+          ? MarkingExam.fromJson(Map<String, dynamic>.from(j['exam'] as Map))
+          : null,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        parts,
+        totalAwarded,
+        totalMax,
+        percentage,
+        strengths,
+        priorities,
+        target,
+        exam,
+      ];
+}
+
+/// One uploaded file on a submission.
+class SubmissionFile extends Equatable {
+  const SubmissionFile({required this.name, this.path, this.size, this.mime});
+
+  final String name;
+  final String? path;
+  final int? size;
+  final String? mime;
+
+  factory SubmissionFile.fromJson(Map<String, dynamic> j) => SubmissionFile(
+        name: (j['file_name'] ?? j['name'] ?? j['filename'] ?? '').toString(),
+        path: (j['file_path'] ?? j['path'] ?? j['url'])?.toString(),
+        size: _toInt(j['size'] ?? j['file_size']),
+        mime: (j['mime'] ?? j['content_type'])?.toString(),
+      );
+
+  @override
+  List<Object?> get props => [name, path, size, mime];
+}
+
+/// The student-safe submission shape (API_BRIEF §7).
+///
+/// The backend whitelists these fields on purpose — the raw document carries
+/// marker-only data. Critically:
+///
+///   * When [released] is false, `grade` and `feedback` are **absent from the
+///     payload** and `marking` / `annotated_url` are null. An absent mark is
+///     not a zero — show "awaiting release" and no number.
+///   * When [released] is true, the mark, feedback and full breakdown appear.
+class Submission extends Equatable {
+  const Submission({
+    required this.id,
+    required this.assignmentId,
+    required this.status,
+    this.submittedAt,
+    this.gradedAt,
+    this.released = false,
+    this.textContent,
+    this.answerText,
+    this.files = const [],
+    this.fileName,
+    this.filePath,
+    this.grade,
+    this.feedback,
+    this.annotatedUrl,
+    this.marking,
+  });
+
+  final String id;
+  final String assignmentId;
+  final String status;
+  final DateTime? submittedAt;
+  final DateTime? gradedAt;
+
+  /// Whether the teacher has released the mark to the student.
+  final bool released;
+
+  final String? textContent;
+  final String? answerText;
+  final List<SubmissionFile> files;
+  final String? fileName;
+  final String? filePath;
+
+  /// Present only when [released]. Null means "not released yet", never zero.
+  final num? grade;
+  final String? feedback;
+  final String? annotatedUrl;
+  final Marking? marking;
+
+  /// True when the work is marked but the mark is being withheld.
+  bool get awaitingRelease => status == 'graded' && !released;
+
+  /// Only show a number when the server actually sent one.
+  bool get hasVisibleGrade => released && grade != null;
+
+  factory Submission.fromJson(Map<String, dynamic> j) {
+    final files = (j['files'] as List?)
+            ?.whereType<Map>()
+            .map((m) => SubmissionFile.fromJson(Map<String, dynamic>.from(m)))
+            .toList() ??
+        const <SubmissionFile>[];
+    return Submission(
+      id: (j['_id'] ?? j['id'] ?? '').toString(),
+      assignmentId: (j['assignment_id'] ?? '').toString(),
+      status: (j['status'] ?? 'submitted').toString(),
+      submittedAt: _toDate(j['submitted_at']),
+      gradedAt: _toDate(j['graded_at']),
+      // Absent `released` means the backend did not mark it released.
+      released: j['released'] == true,
+      textContent: j['text_content']?.toString(),
+      answerText: j['answer_text']?.toString(),
+      files: files,
+      fileName: j['file_name']?.toString(),
+      filePath: j['file_path']?.toString(),
+      // `grade` is REMOVED from the payload when not released — reading it
+      // with a `?? 0` fallback would invent a zero the student never got.
+      grade: _toNum(j['grade']),
+      feedback: j['feedback']?.toString(),
+      annotatedUrl: j['annotated_url']?.toString(),
+      marking: j['marking'] is Map
+          ? Marking.fromJson(Map<String, dynamic>.from(j['marking'] as Map))
+          : null,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        id,
+        assignmentId,
+        status,
+        submittedAt,
+        gradedAt,
+        released,
+        textContent,
+        answerText,
+        files,
+        fileName,
+        filePath,
+        grade,
+        feedback,
+        annotatedUrl,
+        marking,
+      ];
+}
+
+/// Homework and quizzes share one `assignments` collection, separated by
+/// `type` (API_BRIEF §7).
 class Assignment extends Equatable {
   const Assignment({
     required this.id,
@@ -298,12 +952,15 @@ class Assignment extends Equatable {
     this.subjectName,
     this.description,
     this.dueAt,
-    this.status, // pending|submitted|graded|late
-    this.score,
+    this.createdAt,
+    this.status,
+    this.states = const [],
+    this.submission,
     this.maxScore,
     this.attachmentUrl,
-    this.feedback,
-    this.allowResubmit = true,
+    this.attachmentFilename,
+    this.attachmentMime,
+    this.attachmentSize,
   });
 
   final String id;
@@ -313,67 +970,122 @@ class Assignment extends Equatable {
   final String? subjectName;
   final String? description;
   final DateTime? dueAt;
+  final DateTime? createdAt;
+
+  /// `submission_status`: the collapsed state, by precedence
+  /// `graded > submitted > overdue > pending`.
   final String? status;
-  final num? score;
+
+  /// `submission_states`: the full set, in a stable render order. `late` is an
+  /// adjective that rides alongside `submitted` — render both chips.
+  final List<String> states;
+
+  final Submission? submission;
   final num? maxScore;
+
+  /// Token-protected path: `/api/v1/student/assignments/<id>/attachment`.
+  /// Fetch it through the authenticated Dio client — never `Image.network`,
+  /// a bare WebView, or an external browser.
   final String? attachmentUrl;
-  final String? feedback;
-  final bool allowResubmit;
+  final String? attachmentFilename;
+  final String? attachmentMime;
+  final int? attachmentSize;
+
+  /// Valid values of `submission_status` per API_BRIEF §7. `late` is NOT one
+  /// of them — it only ever appears inside `submission_states`.
+  static const validStatuses = {'graded', 'submitted', 'overdue', 'pending'};
+
+  bool get isLate => states.contains('late');
+  bool get isSubmitted => status == 'submitted' || status == 'graded';
+  bool get isGraded => status == 'graded';
+
+  /// True when the server said `overdue`, or — if it sent no status at all —
+  /// the due date has passed with nothing submitted.
+  ///
+  /// The server's `submission_status` is authoritative when present; the date
+  /// fallback only covers payloads that omit it.
+  bool get isOverdue {
+    if (status == 'overdue') return true;
+    if (status != null) return false;
+    final due = dueAt;
+    if (due == null) return false;
+    return DateTime.now().isAfter(due);
+  }
+
+  /// Resubmission is allowed right up until the work is graded.
+  bool get canResubmit => status != 'graded';
+
+  /// Marked, but the teacher has not released the mark. Show "awaiting
+  /// release" and no number.
+  bool get awaitingRelease => isGraded && !(submission?.released ?? false);
+
+  /// The mark to display, or null when there is nothing to show yet.
+  num? get visibleGrade =>
+      submission?.hasVisibleGrade == true ? submission!.grade : null;
 
   factory Assignment.fromJson(Map<String, dynamic> j) {
-    // The list endpoint returns a flat `submission_status`. The detail
-    // endpoint returns the assignment's own publish status at the top level
-    // ("active" / "draft") and nests the student's submission inside a
-    // `submission: {...}` object. Resolve the *submission* status from
-    // whichever shape the server used.
-    final submission = j['submission'] is Map
+    // The detail route nests the assignment under `assignment` and puts the
+    // submission alongside it; the list route returns them flat on one object.
+    final root = j['assignment'] is Map
+        ? Map<String, dynamic>.from(j['assignment'] as Map)
+        : j;
+    final submissionJson = j['submission'] is Map
         ? Map<String, dynamic>.from(j['submission'] as Map)
-        : null;
-    final rawSubmissionStatus = j['submission_status']?.toString();
-    final nestedSubmissionStatus = submission?['status']?.toString();
-    String? submissionStatus = rawSubmissionStatus ?? nestedSubmissionStatus;
-    if (submissionStatus == null && submission != null) {
-      // Submission object exists but has no explicit status → treat as
-      // submitted.
-      submissionStatus =
-          (submission['score'] != null) ? 'graded' : 'submitted';
-    }
-    // Sanitize: ignore non-submission status strings (e.g. "active") that
-    // would otherwise leak through and look like "Pending" downstream.
-    const validStatuses = {'pending', 'submitted', 'graded', 'late'};
-    if (submissionStatus != null &&
-        !validStatuses.contains(submissionStatus)) {
-      submissionStatus = null;
+        : (root['submission'] is Map
+            ? Map<String, dynamic>.from(root['submission'] as Map)
+            : null);
+    final submission =
+        submissionJson == null ? null : Submission.fromJson(submissionJson);
+
+    final states =
+        (j['submission_states'] ?? root['submission_states']) as List?;
+    final stateList = states
+            ?.map((e) => e?.toString() ?? '')
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        const <String>[];
+
+    // Take `submission_status` verbatim when the server sent a valid one.
+    // Never coerce `overdue` away — it is a real state, and dropping it makes
+    // an overdue item render as "Pending".
+    var status =
+        (j['submission_status'] ?? root['submission_status'])?.toString();
+    if (status != null && !validStatuses.contains(status)) status = null;
+    status ??= _collapseStates(stateList);
+    if (status == null && submission != null) {
+      status = submission.status == 'graded' ? 'graded' : 'submitted';
     }
 
     return Assignment(
-        id: (j['_id'] ?? j['id'] ?? '').toString(),
-        title: (j['title'] ?? j['name'] ?? '').toString(),
-        type: (j['type'] ?? 'homework').toString(),
-        subjectId: (j['subject_id'] ?? j['class_id'])?.toString(),
-        subjectName:
-            (j['subject_name'] ?? j['class_name'] ?? j['subject']?['name'])
-                ?.toString(),
-        description: j['description']?.toString(),
-        dueAt: _toDate(j['due_at'] ?? j['due_date']),
-        status: submissionStatus,
-        score: _toNum(j['score'] ?? submission?['score']),
-        maxScore: _toNum(j['max_score'] ?? j['total_score']),
-        attachmentUrl: (j['attachment_url'] ??
-                (j['attachment'] is Map ? j['attachment']['url'] : null))
-            ?.toString(),
-        feedback: (j['feedback'] ?? submission?['feedback'])?.toString(),
-        allowResubmit:
-            j['allow_resubmit'] != false && submissionStatus != 'graded',
-      );
+      id: (root['_id'] ?? root['id'] ?? '').toString(),
+      title: (root['title'] ?? root['name'] ?? '').toString(),
+      type: (root['type'] ?? 'homework').toString(),
+      subjectId: (root['class_id'] ?? root['subject_id'])?.toString(),
+      subjectName: (root['class_name'] ?? root['subject_name'])?.toString(),
+      description: root['description']?.toString(),
+      dueAt: _toDate(root['due_at'] ?? root['due_date']),
+      createdAt: _toDate(root['created_at']),
+      status: status,
+      states: stateList,
+      submission: submission,
+      maxScore: _toNum(root['max_score'] ?? root['total_score']),
+      attachmentUrl: (root['attachment_url'] ??
+              (root['attachment'] is Map ? root['attachment']['url'] : null))
+          ?.toString(),
+      attachmentFilename: root['attachment_filename']?.toString(),
+      attachmentMime: root['attachment_mime']?.toString(),
+      attachmentSize: _toInt(root['attachment_size']),
+    );
   }
 
-  bool get isOverdue {
-    final due = dueAt;
-    if (due == null) return false;
-    return DateTime.now().isAfter(due) &&
-        status != 'submitted' &&
-        status != 'graded';
+  /// Mirrors the server's precedence `graded > submitted > overdue > pending`
+  /// (backend `services/submission_state.py`). Used only as a fallback when
+  /// `submission_status` was absent.
+  static String? _collapseStates(List<String> states) {
+    for (final s in ['graded', 'submitted', 'overdue', 'pending']) {
+      if (states.contains(s)) return s;
+    }
+    return null;
   }
 
   @override
@@ -385,12 +1097,15 @@ class Assignment extends Equatable {
         subjectName,
         description,
         dueAt,
+        createdAt,
         status,
-        score,
+        states,
+        submission,
         maxScore,
         attachmentUrl,
-        feedback,
-        allowResubmit,
+        attachmentFilename,
+        attachmentMime,
+        attachmentSize,
       ];
 }
 
@@ -644,8 +1359,7 @@ class VideoGroup extends Equatable {
 
   /// True once every visible video in the group is past the 90% completion
   /// threshold (matches backend `completed` flag).
-  bool get isComplete =>
-      videos.isNotEmpty && videos.every((v) => v.completed);
+  bool get isComplete => videos.isNotEmpty && videos.every((v) => v.completed);
 
   factory VideoGroup.fromJson(Map<String, dynamic> j) {
     final raw = (j['videos'] as List?) ??
@@ -795,6 +1509,111 @@ class PlaybackTicket extends Equatable {
         fairplay,
         widevine,
       ];
+}
+
+/// `GET /student/subjects` returns the list plus the echoed filters and the
+/// bucket counts (API_BRIEF §5) — the counts drive the filter chip badges.
+class SubjectsPage extends Equatable {
+  const SubjectsPage({
+    this.subjects = const [],
+    this.filter,
+    this.grade,
+    this.examBoard,
+    this.total = 0,
+    this.enrolled = 0,
+    this.pending = 0,
+    this.available = 0,
+  });
+
+  final List<Subject> subjects;
+
+  /// Echoed back by the server so the UI can confirm what it actually applied.
+  final String? filter;
+  final int? grade;
+  final String? examBoard;
+
+  final int total;
+  final int enrolled;
+  final int pending;
+  final int available;
+
+  factory SubjectsPage.fromJson(Map<String, dynamic> j) {
+    final filters = j['filters'] is Map
+        ? Map<String, dynamic>.from(j['filters'] as Map)
+        : const <String, dynamic>{};
+    final counts = j['counts'] is Map
+        ? Map<String, dynamic>.from(j['counts'] as Map)
+        : const <String, dynamic>{};
+    return SubjectsPage(
+      subjects: (j['subjects'] as List?)
+              ?.whereType<Map>()
+              .map((m) => Subject.fromJson(Map<String, dynamic>.from(m)))
+              .toList() ??
+          const [],
+      filter: filters['filter']?.toString(),
+      grade: _toInt(filters['grade']),
+      examBoard: filters['exam_board']?.toString(),
+      total: _toInt(counts['total']) ?? 0,
+      enrolled: _toInt(counts['enrolled']) ?? 0,
+      pending: _toInt(counts['pending']) ?? 0,
+      available: _toInt(counts['available']) ?? 0,
+    );
+  }
+
+  @override
+  List<Object?> get props =>
+      [subjects, filter, grade, examBoard, total, enrolled, pending, available];
+}
+
+/// `GET /notifications` returns `{ notifications: [...], unread_count: n }`
+/// (API_BRIEF §9). The count is authoritative — do not recompute it from the
+/// page, which is capped at 50 rows.
+class NotificationsPage extends Equatable {
+  const NotificationsPage({this.items = const [], this.unreadCount = 0});
+
+  final List<NotificationItem> items;
+  final int unreadCount;
+
+  factory NotificationsPage.fromJson(Map<String, dynamic> j) =>
+      NotificationsPage(
+        items: (j['notifications'] as List?)
+                ?.whereType<Map>()
+                .map(
+                  (m) =>
+                      NotificationItem.fromJson(Map<String, dynamic>.from(m)),
+                )
+                .toList() ??
+            const [],
+        unreadCount: _toInt(j['unread_count']) ?? 0,
+      );
+
+  @override
+  List<Object?> get props => [items, unreadCount];
+}
+
+/// A file fetched from a token-protected route (assignment attachment or the
+/// annotated `graded.pdf`).
+///
+/// Held in memory deliberately: these routes require an `Authorization`
+/// header, so the bytes cannot be handed to a plain URL loader, and writing
+/// them to shared storage would put marked work outside the app sandbox.
+class AssignmentFile {
+  const AssignmentFile({
+    required this.bytes,
+    required this.filename,
+    this.mime,
+  });
+
+  final Uint8List bytes;
+  final String filename;
+  final String? mime;
+
+  bool get isPdf =>
+      mime?.contains('pdf') == true || filename.toLowerCase().endsWith('.pdf');
+
+  bool get isImage => mime?.startsWith('image/') == true;
+
+  int get sizeBytes => bytes.length;
 }
 
 // ---------- helpers ----------

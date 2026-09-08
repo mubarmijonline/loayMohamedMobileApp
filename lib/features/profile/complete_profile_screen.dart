@@ -18,7 +18,8 @@ class CompleteProfileScreen extends ConsumerStatefulWidget {
   const CompleteProfileScreen({super.key});
 
   @override
-  ConsumerState<CompleteProfileScreen> createState() => _CompleteProfileScreenState();
+  ConsumerState<CompleteProfileScreen> createState() =>
+      _CompleteProfileScreenState();
 }
 
 class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
@@ -155,14 +156,14 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                   backgroundImage: _localAvatarPath != null
                       ? FileImage(File(_localAvatarPath!))
                       : ((AppEnv.I.resolveMediaUrl(_avatarUrl) ?? '').isNotEmpty
-                              ? NetworkImage(
-                                  AppEnv.I.resolveMediaUrl(_avatarUrl)!)
-                              : null)
-                          as ImageProvider<Object>?,
-                  child: ((AppEnv.I.resolveMediaUrl(_avatarUrl) ?? '').isEmpty &&
-                          _localAvatarPath == null)
-                      ? const Icon(Icons.person_rounded, size: 44, color: AppColors.primary)
-                      : null,
+                          ? NetworkImage(AppEnv.I.resolveMediaUrl(_avatarUrl)!)
+                          : null) as ImageProvider<Object>?,
+                  child:
+                      ((AppEnv.I.resolveMediaUrl(_avatarUrl) ?? '').isEmpty &&
+                              _localAvatarPath == null)
+                          ? const Icon(Icons.person_rounded,
+                              size: 44, color: AppColors.primary)
+                          : null,
                 ),
                 Positioned(
                   right: -4,
@@ -187,7 +188,9 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                     labelText: 'Full name',
                     prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
-                  validator: (v) => (v?.trim().isNotEmpty ?? false) ? null : 'Name is required',
+                  validator: (v) => (v?.trim().isNotEmpty ?? false)
+                      ? null
+                      : 'Name is required',
                 ),
                 if (_needsRealEmail) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -196,13 +199,15 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
                       color: Colors.orange.withValues(alpha: 0.08),
-                      border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                      border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.4)),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded, color: Colors.orange, size: 20),
+                        Icon(Icons.info_outline_rounded,
+                            color: Colors.orange, size: 20),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -226,9 +231,12 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                     validator: (v) {
                       final s = (v ?? '').trim();
                       if (s.isEmpty) return 'Email is required';
-                      final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s);
+                      final ok =
+                          RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s);
                       if (!ok) return 'Enter a valid email address';
-                      if (s.toLowerCase().endsWith('@privaterelay.appleid.com')) {
+                      if (s
+                          .toLowerCase()
+                          .endsWith('@privaterelay.appleid.com')) {
                         return 'Please enter your real email, not the Apple relay address';
                       }
                       return null;
@@ -247,8 +255,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                 CountryPhoneField(
                   country: _parentCountry,
                   controller: _parentPhone,
-                  onCountryChanged: (c) =>
-                      setState(() => _parentCountry = c),
+                  onCountryChanged: (c) => setState(() => _parentCountry = c),
                   label: 'Parent mobile',
                   icon: Icons.family_restroom_rounded,
                   textInputAction: TextInputAction.next,
@@ -261,7 +268,9 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                     labelText: 'School',
                     prefixIcon: Icon(Icons.school_outlined),
                   ),
-                  validator: (v) => (v?.trim().isNotEmpty ?? false) ? null : 'School is required',
+                  validator: (v) => (v?.trim().isNotEmpty ?? false)
+                      ? null
+                      : 'School is required',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<int>(
@@ -271,7 +280,8 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                     prefixIcon: Icon(Icons.class_rounded),
                   ),
                   items: const [9, 10, 11, 12]
-                      .map((g) => DropdownMenuItem<int>(value: g, child: Text('Grade $g')))
+                      .map((g) => DropdownMenuItem<int>(
+                          value: g, child: Text('Grade $g')))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) setState(() => _grade = v);

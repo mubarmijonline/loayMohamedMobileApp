@@ -12,70 +12,88 @@ sealed class AppFailure extends Equatable implements Exception {
 }
 
 class NetworkFailure extends AppFailure {
-  const NetworkFailure([String message = 'No internet connection.']) : super(message, code: 'network');
+  const NetworkFailure([super.message = 'No internet connection.'])
+      : super(code: 'network');
 }
 
 class TimeoutFailure extends AppFailure {
-  const TimeoutFailure([String message = 'Request timed out.']) : super(message, code: 'timeout');
+  const TimeoutFailure([super.message = 'Request timed out.'])
+      : super(code: 'timeout');
 }
 
 class UnauthorizedFailure extends AppFailure {
-  const UnauthorizedFailure([String message = 'Session expired. Please sign in again.'])
-      : super(message, code: 'unauthorized');
+  /// [code] carries the server's machine code (API_BRIEF §12) when there is
+  /// one — `token_expired`, `invalid_token`, `missing_token`, … — so callers
+  /// can branch on it instead of string-matching the message.
+  const UnauthorizedFailure([
+    super.message = 'Session expired. Please sign in again.',
+    String? code,
+  ]) : super(code: code ?? 'unauthorized');
 }
 
 class ForbiddenFailure extends AppFailure {
-  const ForbiddenFailure([String message = 'You do not have access to this resource.'])
-      : super(message, code: 'forbidden');
+  const ForbiddenFailure([
+    super.message = 'You do not have access to this resource.',
+    String? code,
+  ]) : super(code: code ?? 'forbidden');
 }
 
 class NotFoundFailure extends AppFailure {
-  const NotFoundFailure([String message = 'Not found.']) : super(message, code: 'not_found');
+  const NotFoundFailure([super.message = 'Not found.', String? code])
+      : super(code: code ?? 'not_found');
 }
 
 class ValidationFailure extends AppFailure {
-  const ValidationFailure(super.message, {super.code = 'validation', super.details});
+  const ValidationFailure(
+    super.message, {
+    super.code = 'validation',
+    super.details,
+  });
 }
 
 class ServerFailure extends AppFailure {
-  const ServerFailure([String message = 'Server error. Please try again.']) : super(message, code: 'server');
+  const ServerFailure([
+    super.message = 'Server error. Please try again.',
+    String? code,
+  ]) : super(code: code ?? 'server');
 }
 
 class UnknownFailure extends AppFailure {
-  const UnknownFailure([String message = 'Something went wrong.']) : super(message, code: 'unknown');
+  const UnknownFailure([super.message = 'Something went wrong.'])
+      : super(code: 'unknown');
 }
 
 class CacheFailure extends AppFailure {
-  const CacheFailure([String message = 'Local data unavailable.']) : super(message, code: 'cache');
+  const CacheFailure([super.message = 'Local data unavailable.'])
+      : super(code: 'cache');
 }
 
 class RoleFailure extends AppFailure {
-  const RoleFailure([String message = 'This account is not a student account.']) : super(message, code: 'role');
+  const RoleFailure([super.message = 'This account is not a student account.'])
+      : super(code: 'role');
 }
 
 /// Server signalled that this account has been suspended by an admin.
 /// HTTP 403 with `error.code == 'account_blocked'`.
 class AccountBlockedFailure extends AppFailure {
-  const AccountBlockedFailure(
-      [String message =
-          'Your account has been blocked. Please contact support.'])
-      : super(message, code: 'account_blocked');
+  const AccountBlockedFailure([
+    super.message = 'Your account has been blocked. Please contact support.',
+  ]) : super(code: 'account_blocked');
 }
 
 /// Server signalled that all sessions for this user were revoked. The mobile
 /// token's `tv` claim no longer matches the user's current `token_version`.
 /// HTTP 401 with `error.code == 'session_revoked'`.
 class SessionRevokedFailure extends AppFailure {
-  const SessionRevokedFailure(
-      [String message = 'You have been signed out. Please sign in again.'])
-      : super(message, code: 'session_revoked');
+  const SessionRevokedFailure([
+    super.message = 'You have been signed out. Please sign in again.',
+  ]) : super(code: 'session_revoked');
 }
 
 /// A subject was closed by the admin. HTTP 410 with
 /// `error.code == 'subject_closed'`.
 class SubjectClosedFailure extends AppFailure {
-  const SubjectClosedFailure(
-      [String message =
-          'This subject has been closed by the administrator.'])
-      : super(message, code: 'subject_closed');
+  const SubjectClosedFailure([
+    super.message = 'This subject has been closed by the administrator.',
+  ]) : super(code: 'subject_closed');
 }

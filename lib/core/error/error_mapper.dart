@@ -46,27 +46,34 @@ class ErrorMapper {
     message ??= 'Request failed (status $status).';
 
     // Server-driven codes that map to dedicated failure types regardless of
-    // the HTTP status (the brief allows e.g. account_blocked under 403 and
-    // session_revoked under 401, but we also tolerate alternate statuses).
+    // the HTTP status. The full code list is API_BRIEF §12; `error.message`
+    // is written for the end user in their own language, so it is shown
+    // verbatim rather than being replaced with client-side copy.
     switch (code) {
       case 'account_blocked':
+      case 'inactive_account':
         return AccountBlockedFailure(message);
       case 'session_revoked':
         return SessionRevokedFailure(message);
       case 'subject_closed':
         return SubjectClosedFailure(message);
+      case 'forbidden_role':
+        return RoleFailure(message);
     }
 
     if (status == 410) {
       return SubjectClosedFailure(message);
     }
-    if (status == 401) return UnauthorizedFailure(message);
-    if (status == 403) return ForbiddenFailure(message);
-    if (status == 404) return NotFoundFailure(message);
-    if (status == 422 || status == 400) {
+    // The server code is carried through on every branch so callers can
+    // branch on it — e.g. `already_enrolled` vs `already_pending` on a 409,
+    // or `not_released` vs `no_annotated` on a graded-paper fetch.
+    if (status == 401) return UnauthorizedFailure(message, code);
+    if (status == 403) return ForbiddenFailure(message, code);
+    if (status == 404) return NotFoundFailure(message, code);
+    if (status == 400 || status == 409 || status == 422) {
       return ValidationFailure(message, code: code, details: details);
     }
-    if (status >= 500) return ServerFailure(message);
+    if (status >= 500) return ServerFailure(message, code);
     return UnknownFailure(message);
   }
 

@@ -1,6 +1,21 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/services.dart' show rootBundle;
 
 enum Flavor { dev, staging, prod }
+
+/// Build-time overrides, supplied with `--dart-define`.
+///
+/// The asset `.env` files remain the default so `flutter run` works with no
+/// extra flags, but CI and release builds should pass the host explicitly:
+///
+///   flutter build apk --release \
+///     --dart-define=API_BASE_URL=https://loaymotawie.com
+///
+/// A `--dart-define` always wins over the bundled asset value.
+const String _kApiBaseUrlOverride =
+    String.fromEnvironment('API_BASE_URL', defaultValue: '');
+const String _kOneSignalAppIdOverride =
+    String.fromEnvironment('ONESIGNAL_APP_ID', defaultValue: '');
 
 class AppEnv {
   AppEnv._({
@@ -63,19 +78,39 @@ class AppEnv {
       return v;
     }
 
+    String pick(String key, String Function() fallback) {
+      final override = switch (key) {
+        'API_BASE_URL' => _kApiBaseUrlOverride,
+        'ONESIGNAL_APP_ID' => _kOneSignalAppIdOverride,
+        _ => '',
+      };
+      return override.isNotEmpty ? override : fallback();
+    }
+
+    // Strip a trailing slash so `'$apiBaseUrl$apiV1Prefix'` never doubles up.
+    final baseUrl = () {
+      final v = pick('API_BASE_URL', () => req('API_BASE_URL'));
+      return v.endsWith('/') ? v.substring(0, v.length - 1) : v;
+    }();
+
     _instance = AppEnv._(
       flavor: flavor,
-      apiBaseUrl: req('API_BASE_URL'),
+      apiBaseUrl: baseUrl,
       apiV1Prefix: req('API_V1_PREFIX'),
       legacyStudentPrefix: req('LEGACY_STUDENT_PREFIX'),
       legacyApiPrefix: req('LEGACY_API_PREFIX'),
-      oneSignalAppId: req('ONESIGNAL_APP_ID'),
+      oneSignalAppId: pick('ONESIGNAL_APP_ID', () => req('ONESIGNAL_APP_ID')),
       connectTimeoutMs: int.parse(req('CONNECT_TIMEOUT_MS')),
       receiveTimeoutMs: int.parse(req('RECEIVE_TIMEOUT_MS')),
       sendTimeoutMs: int.parse(req('SEND_TIMEOUT_MS')),
       retryCount: int.parse(req('RETRY_COUNT')),
-      enableLogging: req('ENABLE_LOGGING').toLowerCase() == 'true',
-      allowInsecureTls: (map['ALLOW_INSECURE_TLS']?.toLowerCase() ?? 'false') == 'true',
+      // Never log in release, whatever the .env says. Response bodies carry
+      // `embed_url` and the watermark string; neither may reach device logs.
+      enableLogging:
+          !kReleaseMode && req('ENABLE_LOGGING').toLowerCase() == 'true',
+      // TLS validation is never relaxed in a release build.
+      allowInsecureTls: !kReleaseMode &&
+          (map['ALLOW_INSECURE_TLS']?.toLowerCase() ?? 'false') == 'true',
     );
     return _instance!;
   }

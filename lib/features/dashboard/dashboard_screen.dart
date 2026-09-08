@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/assets.dart';
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_spacing.dart';
 import '../../core/design/components.dart';
@@ -11,6 +13,7 @@ import '../../core/error/failures.dart';
 import '../_shared/models.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../providers.dart';
+import '../../core/design/app_palette.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -28,117 +31,103 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       // Use the theme's scaffold colour so dark mode is honoured.
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(dashboardProvider);
-            await ref.read(dashboardProvider.future).catchError(
-                  (_) => const StudentDashboard(
-                    subjects: [],
-                    overallCompletion: 0,
-                  ),
-                );
-          },
-          color: AppColors.primary,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                  AppSpacing.lg,
+      // No top SafeArea: the header paints under the status bar deliberately,
+      // and applies the inset itself.
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(dashboardProvider);
+          await ref.read(dashboardProvider.future).catchError(
+                (_) => const StudentDashboard(
+                  subjects: [],
+                  overallCompletion: 0,
                 ),
-                sliver: SliverToBoxAdapter(
-                  child: _Hero(
-                    greeting: greeting,
-                    name: user?.name ?? 'Student',
-                  ),
-                ),
+              );
+        },
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: _HomeHeader(
+                greeting: greeting,
+                name: user?.name ?? 'Student',
+                // Null while loading, so the greeting still paints at once.
+                dashboard: dash.valueOrNull,
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  0,
-                  0,
-                  0,
-                  AppSpacing.xl,
+            ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.lg),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                0,
+                0,
+                0,
+                AppSpacing.xl,
+              ),
+              sliver: dash.when(
+                loading: () => const SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  sliver: SliverToBoxAdapter(child: _DashboardSkeleton()),
                 ),
-                sliver: dash.when(
-                  loading: () => const SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    sliver:
-                        SliverToBoxAdapter(child: _DashboardSkeleton()),
-                  ),
-                  error: (e, _) => SliverPadding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    sliver: SliverToBoxAdapter(
-                      child: ErrorStateView(
-                        message: e is AppFailure ? e.message : e.toString(),
-                        onRetry: () => ref.invalidate(dashboardProvider),
-                      ),
+                error: (e, _) => SliverPadding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  sliver: SliverToBoxAdapter(
+                    child: ErrorStateView(
+                      message: e is AppFailure ? e.message : e.toString(),
+                      onRetry: () => ref.invalidate(dashboardProvider),
                     ),
                   ),
-                  data: (data) {
-                    return SliverList.list(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                          ),
-                          child: _OverviewBand(dashboard: data)
-                              .animate()
-                              .fadeIn(duration: 320.ms),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                          ),
-                          child: _StatRow(dashboard: data)
-                              .animate()
-                              .fadeIn(duration: 320.ms),
-                        ),
-                        if (data.subjects.isNotEmpty) ...[
-                          const SizedBox(height: AppSpacing.lg),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                            ),
-                            child: SectionHeader(
-                              title: 'Your subjects',
-                              action: TextButton(
-                                onPressed: () => Navigator.of(context)
-                                    .pushNamed('/subjects'),
-                                child: const Text('See all'),
-                              ),
-                            ),
-                          ),
-                          ...data.subjects.map(
-                            (s) => Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                AppSpacing.md,
-                                0,
-                                AppSpacing.md,
-                                AppSpacing.sm,
-                              ),
-                              child: _SubjectWorkloadCard(
-                                subject: s,
-                                onTap: () => Navigator.of(context)
-                                    .pushNamed('/subjects/${s.id}'),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    );
-                  },
                 ),
+                data: (data) {
+                  return SliverList.list(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                        ),
+                        child: _StatRow(dashboard: data)
+                            .animate()
+                            .fadeIn(duration: 320.ms),
+                      ),
+                      if (data.subjects.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                          ),
+                          child: SectionHeader(
+                            title: 'Your subjects',
+                            action: TextButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pushNamed('/subjects'),
+                              child: const Text('See all'),
+                            ),
+                          ),
+                        ),
+                        ...data.subjects.map(
+                          (s) => Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.md,
+                              0,
+                              AppSpacing.md,
+                              AppSpacing.sm,
+                            ),
+                            child: _SubjectWorkloadCard(
+                              subject: s,
+                              onTap: () => Navigator.of(context)
+                                  .pushNamed('/subjects/${s.id}'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -147,49 +136,163 @@ class DashboardScreen extends ConsumerWidget {
 
 // ───────────────────────────── Hero ─────────────────────────────
 
-class _Hero extends StatelessWidget {
-  const _Hero({required this.greeting, required this.name});
+/// Full-bleed brand header: greeting, portrait, and the progress band.
+///
+/// The portrait sits *behind* the content and runs up under the status bar,
+/// which is what makes it read as part of the app's chrome rather than a
+/// picture that has been dropped on top of the page.
+///
+/// It also merges the overall-progress band into itself. An earlier attempt
+/// put the portrait in its own banner above that band, which left two
+/// full-width navy blocks stacked at the top — heavy, repetitive, and it
+/// pushed the real content off the first screen. One navy region carries both.
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
+    required this.greeting,
+    required this.name,
+    this.dashboard,
+  });
+
   final String greeting;
   final String name;
+
+  /// Null while the dashboard is still loading; the greeting renders anyway so
+  /// the header never pops in late.
+  final StudentDashboard? dashboard;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        AvatarInitials(name: name, size: 46),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                greeting,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+    final width = MediaQuery.sizeOf(context).width;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final data = dashboard;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // The header is navy under both themes, so the status bar always needs
+      // light content over it. Without this the light theme painted a
+      // near-black clock and battery on navy.
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(28),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1B2A44), Color(0xFF0B1426)],
+                  ),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                name,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                  height: 1.1,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            ),
+
+            // Anchored to the top-right and allowed to run under the status bar.
+            Positioned(
+              // Not 0: at the very top the crop cut straight through his
+              // forehead. The navy still runs under the status bar; only the
+              // photograph starts below it.
+              top: topInset * 0.5,
+              right: 0,
+              bottom: 0,
+              width: 150,
+              child: Image.asset(
+                AppAssets.heroFor(width),
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                filterQuality: FilterQuality.high,
+                // A missing asset must never blank the header.
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
-            ],
-          ),
+            ),
+
+            // Readability scrim. JUSTIFIED GRADIENT: this is what keeps the
+            // greeting and the stats legible where they cross the photograph.
+            // It is not decoration, and it is why the portrait can sit behind
+            // live content at all.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      const Color(0xFF16233A),
+                      const Color(0xFF16233A).withValues(alpha: 0.92),
+                      const Color(0xFF16233A).withValues(alpha: 0.55),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                topInset + 10,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      AvatarInitials(name: name, size: 44),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              greeting,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.75),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              name,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                height: 1.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const _CircleIconButton(
+                        icon: Icons.search_rounded,
+                        onDark: true,
+                      ),
+                    ],
+                  ),
+                  if (data != null) ...[
+                    // The band is a separate idea from the greeting; at md it
+                    // read as one crowded block with the student's name.
+                    const SizedBox(height: AppSpacing.lg),
+                    _OverviewBand(dashboard: data, flat: true),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        _CircleIconButton(
-          icon: Icons.search_rounded,
-          onTap: () => Navigator.of(context).pushNamed('/subjects'),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -197,30 +300,41 @@ class _Hero extends StatelessWidget {
 class _CircleIconButton extends StatelessWidget {
   const _CircleIconButton({
     required this.icon,
-    required this.onTap,
+    this.onTap,
+    this.onDark = false,
   });
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+
+  /// True when the button sits on the brand-navy banner, which is navy in
+  /// both themes — so it takes a translucent white treatment rather than the
+  /// themed surface colour.
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final fill = onDark ? Colors.white.withValues(alpha: 0.16) : scheme.surface;
+    final border = onDark
+        ? Colors.white.withValues(alpha: 0.24)
+        : scheme.outline.withValues(alpha: 0.4);
+    final fg = onDark ? Colors.white : scheme.onSurface;
     return SizedBox(
       width: 44,
       height: 44,
       child: Material(
-        color: scheme.surface,
+        color: fill,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: scheme.outline.withValues(alpha: 0.4)),
+          side: BorderSide(color: border),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
+          onTap: onTap ?? () => Navigator.of(context).pushNamed('/subjects'),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurface),
+              Icon(icon, size: 20, color: fg),
             ],
           ),
         ),
@@ -252,7 +366,10 @@ class _StatRow extends StatelessWidget {
               icon: Icons.menu_book_rounded,
               value: '$totalSubjects',
               label: 'Subjects',
-              color: AppColors.primary,
+              // The tile is a 12% wash of this colour and the glyph is this
+              // colour, so a navy value renders navy-on-navy in dark.
+              color:
+                  context.palette.isDark ? AppColors.accent : AppColors.primary,
               onTap: () => Navigator.of(context).pushNamed('/subjects'),
             ),
           ),
@@ -262,7 +379,11 @@ class _StatRow extends StatelessWidget {
               icon: Icons.pending_actions_rounded,
               value: '$pendingTotal',
               label: 'Pending tasks',
-              color: pendingTotal == 0 ? AppColors.success : AppColors.warning,
+              // Neutral. "4 pending" is a count, not a warning, and amber
+              // here was the only warm colour on the screen.
+              color: pendingTotal == 0
+                  ? AppColors.success
+                  : context.palette.textSecondary,
               onTap: () => Navigator.of(context).pushNamed('/assignments'),
             ),
           ),
@@ -330,7 +451,10 @@ class _StatCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.65),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -345,8 +469,13 @@ class _StatCard extends StatelessWidget {
 // ───────────────────────────── Workload bar (shared) ─────────────────────────────
 
 class _OverviewBand extends StatelessWidget {
-  const _OverviewBand({required this.dashboard});
+  const _OverviewBand({required this.dashboard, this.flat = false});
   final StudentDashboard dashboard;
+
+  /// Drop the navy container and shadow, because the caller already painted
+  /// them. Used by [_HomeHeader], which merges this band into the header so
+  /// the page has one navy region instead of two stacked ones.
+  final bool flat;
 
   @override
   Widget build(BuildContext context) {
@@ -354,8 +483,7 @@ class _OverviewBand extends StatelessWidget {
     // Prefer the server-supplied overall completion. If it's 0 (or the API
     // didn't send one), fall back to a locally-computed ratio so the ring
     // reflects real progress instead of always reading 0%.
-    final hwDone =
-        dashboard.assignmentCount - dashboard.pendingAssignments;
+    final hwDone = dashboard.assignmentCount - dashboard.pendingAssignments;
     final qzDone = dashboard.quizCount - dashboard.pendingQuizzes;
     final totalTasks = dashboard.assignmentCount + dashboard.quizCount;
     final doneTasks = hwDone + qzDone;
@@ -369,22 +497,24 @@ class _OverviewBand extends StatelessWidget {
     final lessonsCount = dashboard.contentCount;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1B2A44), Color(0xFF0B1426)],
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
+      padding: flat ? EdgeInsets.zero : const EdgeInsets.all(16),
+      decoration: flat
+          ? null
+          : BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1B2A44), Color(0xFF0B1426)],
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+              boxShadow: [
+                BoxShadow(
+                  color: context.palette.shadow,
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -406,7 +536,7 @@ class _OverviewBand extends StatelessWidget {
                         strokeWidth: 6,
                         backgroundColor: Colors.white.withValues(alpha: 0.18),
                         valueColor: AlwaysStoppedAnimation(
-                          _progressColor(pct),
+                          _progressColorOnDark(pct),
                         ),
                       ),
                     ),
@@ -459,7 +589,7 @@ class _OverviewBand extends StatelessWidget {
               value: progress,
               minHeight: 6,
               backgroundColor: Colors.white.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation(_progressColor(pct)),
+              valueColor: AlwaysStoppedAnimation(_progressColorOnDark(pct)),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -494,14 +624,31 @@ class _OverviewBand extends StatelessWidget {
     );
   }
 
-  /// Maps a 0–100 percentage to a status color:
-  /// red < 25, orange < 50, amber < 75, green ≥ 75 (teal at 100).
-  Color _progressColor(int pct) {
-    if (pct >= 100) return const Color(0xFF14B8A6); // teal — done
-    if (pct >= 75) return const Color(0xFF22C55E); // green
-    if (pct >= 50) return const Color(0xFFF59E0B); // amber
-    if (pct >= 25) return const Color(0xFFF97316); // orange
-    return const Color(0xFFEF4444); // red — just starting
+  /// Progress on this band's **dark** navy card.
+  ///
+  /// Must be light. The obvious "use the brand colour" answer would paint
+  /// navy on navy and vanish — which is exactly how the stat card broke once
+  /// before.
+  Color _progressColorOnDark(int pct) {
+    if (pct >= 75) return AppColors.success;
+    if (pct == 0) return Colors.white.withValues(alpha: 0.35);
+    return Colors.white;
+  }
+
+  /// Progress on **light** surfaces.
+  ///
+  /// One hue plus neutrals: navy while in progress, emerald once genuinely
+  /// finished, grey at zero. No accent and no orange — the old five-step
+  /// red/orange/amber/green ramp made a card change character as the student
+  /// worked through it, and the percentage beside it already says how far
+  /// along they are.
+  Color _progressColor(BuildContext context, int pct) {
+    if (pct >= 75) return AppColors.success;
+    if (pct == 0) return context.palette.textHint;
+    // Navy is the light-mode "in progress" neutral. On a dark navy card it is
+    // invisible — this is what made "63% complete" unreadable — so dark uses
+    // the brand cyan for the same meaning.
+    return context.palette.isDark ? AppColors.accent : AppColors.primary;
   }
 }
 
@@ -527,7 +674,7 @@ class _OverviewMetric extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 18, color: AppColors.accent),
+            child: Icon(icon, size: 18, color: Colors.white),
           ),
           const SizedBox(height: 6),
           Text(
@@ -603,7 +750,10 @@ class _WorkloadBar extends StatelessWidget {
             Text(
               '$done / $total',
               style: theme.textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.65),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -614,8 +764,12 @@ class _WorkloadBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           child: SizedBox(
             height: 10,
+            // Progress is one fill on a neutral track. It used to be green
+            // butted against orange across the full width, which read as two
+            // competing values rather than one measure, and made every card
+            // shout.
             child: total == 0
-                ? Container(color: AppColors.divider)
+                ? Container(color: context.palette.divider)
                 : Row(
                     children: [
                       Expanded(
@@ -624,7 +778,7 @@ class _WorkloadBar extends StatelessWidget {
                       ),
                       Expanded(
                         flex: math.max(1, ((1 - doneRatio) * 1000).round()),
-                        child: Container(color: AppColors.warning),
+                        child: Container(color: context.palette.divider),
                       ),
                     ],
                   ),
@@ -660,8 +814,8 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
       orElse: () => const SubjectWorkload(),
     );
 
-    final aDone =
-        (w.assignmentsTotal - w.assignmentsPending).clamp(0, w.assignmentsTotal);
+    final aDone = (w.assignmentsTotal - w.assignmentsPending)
+        .clamp(0, w.assignmentsTotal);
     final qDone = (w.quizzesTotal - w.quizzesPending).clamp(0, w.quizzesTotal);
     final pendingTotal = w.pendingTotal;
     final grandTotal = w.grandTotal;
@@ -681,12 +835,27 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  gradient: AppColors.lavenderGradient,
+                  // The lavender gradient is a light-mode tint; on a dark card
+                  // it is the brightest thing on screen. Dark gets a tinted
+                  // navy tile with the accent glyph instead.
+                  gradient: context.palette.isDark
+                      ? null
+                      : AppColors.lavenderGradient,
+                  color: context.palette.isDark
+                      ? context.palette.surfaceTinted
+                      : null,
                   borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: context.palette.isDark
+                      ? Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.28),
+                        )
+                      : null,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.menu_book_rounded,
-                  color: AppColors.primary,
+                  color: context.palette.isDark
+                      ? AppColors.accent
+                      : AppColors.primary,
                   size: 20,
                 ),
               ),
@@ -710,7 +879,10 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
                         child: Text(
                           '${aDone + qDone} of $grandTotal completed',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.65),
                           ),
                         ),
                       )
@@ -726,7 +898,10 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
                               '${subject.lessonsCount} lessons',
                           ].join(' · '),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.65),
                           ),
                         ),
                       ),
@@ -739,10 +914,11 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: grandTotal == 0
-                      ? AppColors.divider.withValues(alpha: 0.6)
+                      ? context.palette.divider.withValues(alpha: 0.6)
                       : (allDone
                           ? AppColors.success.withValues(alpha: 0.12)
-                          : AppColors.warning.withValues(alpha: 0.14)),
+                          : context.palette.textSecondary
+                              .withValues(alpha: 0.16)),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -752,8 +928,13 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: grandTotal == 0
-                        ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65)
-                        : (allDone ? AppColors.success : AppColors.warning),
+                        ? Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.65)
+                        : (allDone
+                            ? AppColors.success
+                            : context.palette.textSecondary),
                   ),
                 ),
               ),
@@ -803,8 +984,8 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
                           ? Icons.expand_less_rounded
                           : Icons.expand_more_rounded,
                       size: 18,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.65),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.65),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -812,8 +993,8 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
                           ? 'Hide assignments & quizzes'
                           : 'Show assignments & quizzes',
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.7),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -855,11 +1036,12 @@ class _SubjectWorkloadCardState extends ConsumerState<_SubjectWorkloadCard> {
   }
 
   Color _subjectProgressColor(int pct) {
-    if (pct >= 100) return const Color(0xFF14B8A6);
-    if (pct >= 75) return const Color(0xFF22C55E);
-    if (pct >= 50) return const Color(0xFFF59E0B);
-    if (pct >= 25) return const Color(0xFFF97316);
-    return const Color(0xFFEF4444);
+    if (pct >= 75) return AppColors.success;
+    if (pct == 0) return context.palette.textHint;
+    // Navy is the light-mode "in progress" neutral. On a dark navy card it is
+    // invisible — this is what made "63% complete" unreadable — so dark uses
+    // the brand cyan for the same meaning.
+    return context.palette.isDark ? AppColors.accent : AppColors.primary;
   }
 }
 

@@ -33,11 +33,15 @@ class AppColors {
   static const Color textOnAccent = Color(0xFFFFFFFF);
 
   // Semantic
-  static const Color success = Color(0xFF2E7D32);
-  static const Color successLight = Color(0xFFE8F5E9);
-  static const Color warning = Color(0xFFF57F17);
-  static const Color warningLight = Color(0xFFFFF8E1);
-  static const Color danger = Color(0xFFE53935);
+  // Emerald rather than the old forest green. #2E7D32 next to a bright
+  // amber read as a traffic light; this sits with the brand cyan.
+  static const Color success = Color(0xFF0E9F6E);
+  static const Color successLight = Color(0xFFE6F6F0);
+  // Muted amber. The old #F57F17 was the loudest colour on every screen
+  // and pulled attention away from the content.
+  static const Color warning = Color(0xFFC2760B);
+  static const Color warningLight = Color(0xFFFDF3E2);
+  static const Color danger = Color(0xFFD64545);
   static const Color dangerLight = Color(0xFFFFF0F0);
   static const Color info = Color(0xFF1565C0);
   static const Color infoLight = Color(0xFFE3F2FD);

@@ -39,19 +39,11 @@ class AuthRepository {
         throw ValidationFailure(env.errorMessage ?? 'Invalid credentials');
       }
       final data = env.data!;
-      final access = data['access_token']?.toString();
-      final refresh = data['refresh_token']?.toString();
-      final expiresIn = data['expires_in'];
-      if (access == null || refresh == null) {
+      final bundle = TokenBundle.fromAuthPayload(data);
+      if (bundle == null) {
         throw const ServerFailure('Auth response missing tokens.');
       }
-      await _tokens.save(TokenBundle(
-        accessToken: access,
-        refreshToken: refresh,
-        expiresAt: expiresIn is int
-            ? DateTime.now().add(Duration(seconds: expiresIn))
-            : null,
-      ),);
+      await _tokens.save(bundle);
       final userJson = (data['user'] ?? data['student']) as Map?;
       if (userJson == null) {
         return await me();
@@ -161,19 +153,11 @@ class AuthRepository {
         throw ValidationFailure(env.errorMessage ?? 'Invalid code');
       }
       final data = env.data!;
-      final access = data['access_token']?.toString();
-      final refresh = data['refresh_token']?.toString();
-      final expiresIn = data['expires_in'];
-      if (access == null || refresh == null) {
+      final bundle = TokenBundle.fromAuthPayload(data);
+      if (bundle == null) {
         throw const ServerFailure('Auth response missing tokens.');
       }
-      await _tokens.save(TokenBundle(
-        accessToken: access,
-        refreshToken: refresh,
-        expiresAt: expiresIn is int
-            ? DateTime.now().add(Duration(seconds: expiresIn))
-            : null,
-      ));
+      await _tokens.save(bundle);
       final userJson = (data['user']) as Map?;
       if (userJson == null) return await me();
       // Merge top-level linked_students into the user map so StudentUser.fromJson
@@ -204,76 +188,10 @@ class AuthRepository {
     }
   }
 
-  /// Exchanges a 3rd-party identity token for our session.
-  ///
-  /// Backend contract — `POST /auth/social`:
-  ///   request:  { provider: 'apple'|'google',
-  ///               id_token: '...',
-  ///               authorization_code?: '...',
-  ///               email?: '...', name?: '...',
-  ///               nonce?: '...', device_id?: '...' }
-  ///   response: same envelope as /auth/login
-  ///             { access_token, refresh_token, expires_in, user }
-  Future<StudentUser> socialLogin({
-    required String provider,
-    required String idToken,
-    String? authorizationCode,
-    String? email,
-    String? name,
-    String? nonce,
-    String? deviceId,
-  }) async {
-    try {
-      final res = await _client.dio.post<dynamic>(
-        '$_v1/auth/social',
-        data: {
-          'provider': provider,
-          'id_token': idToken,
-          if (authorizationCode != null) 'authorization_code': authorizationCode,
-          if (email != null) 'email': email,
-          if (name != null) 'name': name,
-          if (nonce != null) 'nonce': nonce,
-          if (deviceId != null) 'device_id': deviceId,
-        },
-        options: Options(extra: const {'skipAuth': true}),
-      );
-      final env = ApiEnvelope.from<Map<String, dynamic>>(
-        res.data,
-        (j) => Map<String, dynamic>.from(j as Map),
-      );
-      if (!env.success || env.data == null) {
-        throw ValidationFailure(env.errorMessage ?? 'Social sign-in failed');
-      }
-      final data = env.data!;
-      final access = data['access_token']?.toString();
-      final refresh = data['refresh_token']?.toString();
-      final expiresIn = data['expires_in'];
-      if (access == null || refresh == null) {
-        throw const ServerFailure('Auth response missing tokens.');
-      }
-      await _tokens.save(TokenBundle(
-        accessToken: access,
-        refreshToken: refresh,
-        expiresAt: expiresIn is int
-            ? DateTime.now().add(Duration(seconds: expiresIn))
-            : null,
-      ),);
-      final userJson = (data['user'] ?? data['student']) as Map?;
-      if (userJson == null) return await me();
-      final user = StudentUser.fromJson(Map<String, dynamic>.from(userJson));
-      if (!user.isStudent) {
-        await _tokens.clear();
-        throw const RoleFailure();
-      }
-      return user;
-    } on DioException catch (e) {
-      throw ErrorMapper.fromDio(e);
-    }
-  }
-
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
+    String? confirmPassword,
   }) async {
     try {
       await _client.dio.post<dynamic>(
@@ -281,6 +199,7 @@ class AuthRepository {
         data: {
           'current_password': currentPassword,
           'new_password': newPassword,
+          'confirm_password': confirmPassword ?? newPassword,
         },
       );
     } on DioException catch (e) {
@@ -288,11 +207,16 @@ class AuthRepository {
     }
   }
 
-  Future<void> changePhone(String phone) async {
+  /// `PATCH /student/profile/phone` — `{ phone, country_code? }`.
+  /// Changing the phone resets `phone_verified` to false server-side.
+  Future<void> changePhone(String phone, {String? countryCode}) async {
     try {
       await _client.dio.patch<dynamic>(
         '$_v1/student/profile/phone',
-        data: {'phone': phone},
+        data: {
+          'phone': phone,
+          if (countryCode != null) 'country_code': countryCode,
+        },
       );
     } on DioException catch (e) {
       throw ErrorMapper.fromDio(e);
@@ -337,17 +261,9 @@ class AuthRepository {
       }
       // Persist tokens if the backend returns them on register.
       final data = env.data!;
-      final access = data['access_token']?.toString();
-      final refresh = data['refresh_token']?.toString();
-      final expiresIn = data['expires_in'];
-      if (access != null && refresh != null) {
-        await _tokens.save(TokenBundle(
-          accessToken: access,
-          refreshToken: refresh,
-          expiresAt: expiresIn is int
-              ? DateTime.now().add(Duration(seconds: expiresIn))
-              : null,
-        ),);
+      final bundle = TokenBundle.fromAuthPayload(data);
+      if (bundle != null) {
+        await _tokens.save(bundle);
       }
       final userJson = (data['user'] ?? data['student']) as Map?;
       if (userJson != null) {
@@ -403,12 +319,12 @@ class AuthRepository {
         if (phone != null) 'phone': phone,
         if (countryCode != null) 'country_code': countryCode,
         if (parentPhone != null) 'parent_phone': parentPhone,
-        if (parentCountryCode != null)
-          'parent_country_code': parentCountryCode,
+        if (parentCountryCode != null) 'parent_country_code': parentCountryCode,
         if (school != null) 'school': school,
         if (grade != null) 'grade': grade,
       };
-      final res = await _client.dio.patch<dynamic>('$_v1/student/profile', data: data);
+      final res =
+          await _client.dio.patch<dynamic>('$_v1/student/profile', data: data);
       final env = ApiEnvelope.from<Map<String, dynamic>>(
         res.data,
         (j) => Map<String, dynamic>.from(j as Map),
@@ -430,16 +346,20 @@ class AuthRepository {
       final form = FormData.fromMap({
         'avatar': await MultipartFile.fromFile(filePath),
       });
-      final res = await _client.dio.post<dynamic>('$_v1/student/profile/avatar', data: form);
+      final res = await _client.dio
+          .post<dynamic>('$_v1/student/profile/avatar', data: form);
       final env = ApiEnvelope.from<Map<String, dynamic>>(
         res.data,
         (j) => Map<String, dynamic>.from(j as Map),
       );
       if (!env.success || env.data == null) {
-        throw ValidationFailure(env.errorMessage ?? 'Could not upload profile image');
+        throw ValidationFailure(
+          env.errorMessage ?? 'Could not upload profile image',
+        );
       }
-      final url =
-          env.data!['avatar_url']?.toString() ?? env.data!['avatar']?.toString() ?? '';
+      final url = env.data!['avatar_url']?.toString() ??
+          env.data!['avatar']?.toString() ??
+          '';
       if (url.isEmpty) {
         throw const ServerFailure('Upload response missing avatar_url');
       }

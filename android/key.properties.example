@@ -1,0 +1,13 @@
+# Copy to android/key.properties and fill in. That file is gitignored: it holds
+# the keystore password in plain text and must never be committed.
+#
+# Create the keystore first (once, and back it up somewhere safe — losing it
+# means you can never update the app on Play again):
+#
+#   keytool -genkey -v -keystore ~/loay-upload.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+storePassword=
+keyPassword=
+keyAlias=upload
+storeFile=/Users/you/loay-upload.jks

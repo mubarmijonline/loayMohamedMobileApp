@@ -59,11 +59,11 @@ class RealtimePollService with WidgetsBindingObserver {
     _ticking = true;
     try {
       final repo = _ref.read(studentRepositoryProvider);
-      final items = await repo.notificationsLatest().catchError(
-            (_) => repo.notifications(),
-          );
-      if (items.isEmpty) return;
-      final newestId = items.first.id;
+      // `/notifications/latest` returns the single most recent UNREAD doc, or
+      // null — not a list (API_BRIEF §9).
+      final latest = await repo.notificationsLatest();
+      if (latest == null) return; // Nothing unread.
+      final newestId = latest.id;
       if (seed || _lastId == null) {
         _lastId = newestId;
         return;
@@ -79,7 +79,7 @@ class RealtimePollService with WidgetsBindingObserver {
       // Fan out to every dependent provider (student + parent caches).
       _ref
           .read(appDataSyncProvider)
-          .onRealtimeNotification(payload: items.first.data);
+          .onRealtimeNotification(payload: latest.data);
     } catch (e) {
       AppLogger.I.w('RealtimePoll: tick failed: $e');
     } finally {
@@ -94,12 +94,16 @@ final realtimePollServiceProvider =
 /// Side-effect: start/stop polling based on auth state. Mirrors
 /// [pushBootstrapProvider]'s lifecycle.
 final realtimePollBootstrapProvider = Provider<void>((ref) {
-  ref.listen<AuthState>(authControllerProvider, (prev, next) {
-    final svc = ref.read(realtimePollServiceProvider);
-    if (next.status == AuthStatus.authenticated) {
-      svc.start();
-    } else {
-      svc.stop();
-    }
-  }, fireImmediately: true);
+  ref.listen<AuthState>(
+    authControllerProvider,
+    (prev, next) {
+      final svc = ref.read(realtimePollServiceProvider);
+      if (next.status == AuthStatus.authenticated) {
+        svc.start();
+      } else {
+        svc.stop();
+      }
+    },
+    fireImmediately: true,
+  );
 });

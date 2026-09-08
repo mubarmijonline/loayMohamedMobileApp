@@ -57,8 +57,14 @@ class PushService {
           'Get notified about new lessons, assignments, grades, and announcements from your teacher.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Not now')),
-          FilledButton(onPressed: () => Navigator.pop(_, true), child: const Text('Enable')),
+          TextButton(
+            onPressed: () => Navigator.pop(_, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(_, true),
+            child: const Text('Enable'),
+          ),
         ],
       ),
     );
@@ -91,7 +97,9 @@ class PushService {
         );
         return;
       }
-      AppLogger.I.i('OneSignal player_id=$playerId — registering with backend (role=$role)');
+      AppLogger.I.i(
+        'OneSignal player_id=$playerId — registering with backend (role=$role)',
+      );
       final cache = _ref.read(kvCacheProvider);
       await cache.setString(_kPlayerIdKey, playerId);
 
@@ -127,7 +135,9 @@ class PushService {
       final cache = _ref.read(kvCacheProvider);
       final playerId = cache.getString(_kPlayerIdKey);
       if (playerId != null) {
-        await _ref.read(studentRepositoryProvider).unregisterPushDevice(playerId);
+        await _ref
+            .read(studentRepositoryProvider)
+            .unregisterPushDevice(playerId);
       }
       await cache.remove(_kPlayerIdKey);
       OneSignal.logout();
@@ -137,8 +147,9 @@ class PushService {
   }
 
   void _onForeground(OSNotification n) {
-    final data =
-        n.additionalData == null ? null : Map<String, dynamic>.from(n.additionalData!);
+    final data = n.additionalData == null
+        ? null
+        : Map<String, dynamic>.from(n.additionalData!);
     final item = NotificationItem(
       id: n.notificationId,
       title: n.title ?? '',
@@ -154,8 +165,9 @@ class PushService {
   }
 
   void _onTap(OSNotification n) {
-    final data =
-        n.additionalData == null ? null : Map<String, dynamic>.from(n.additionalData!);
+    final data = n.additionalData == null
+        ? null
+        : Map<String, dynamic>.from(n.additionalData!);
     _ref.read(appDataSyncProvider).onRealtimeNotification(payload: data);
     final route = _routeFor(n);
     if (route == null) return;
@@ -205,7 +217,14 @@ final rootNavigatorKeyProvider =
 final pushServiceProvider = Provider<PushService>((ref) => PushService(ref));
 
 /// Side-effect: when the user becomes authenticated, init/bind OneSignal;
-/// when unauthenticated, unbind.
+/// when unauthenticated, tear down the local OneSignal session.
+///
+/// NOTE: the `DELETE /devices/<player_id>` call is NOT made here. This
+/// listener fires *after* tokens are already cleared, so the request would
+/// 401 and the device would stay registered. `AuthController.logout()` calls
+/// [PushService.unbind] first, while the token is still valid — see
+/// API_BRIEF §4. This branch is only the safety net for a forced logout
+/// (session revoked / account blocked), where the token is dead anyway.
 final pushBootstrapProvider = Provider<void>((ref) {
   ref.listen<AuthState>(authControllerProvider, (prev, next) async {
     final svc = ref.read(pushServiceProvider);
@@ -213,6 +232,7 @@ final pushBootstrapProvider = Provider<void>((ref) {
       await svc.init();
       await svc.bindUser(next.user!.id, next.user!.role);
     } else if (next.status == AuthStatus.unauthenticated) {
+      // No-op when logout() already unbound; clears local state otherwise.
       await svc.unbind();
     }
   });

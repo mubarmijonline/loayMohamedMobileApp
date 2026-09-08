@@ -3,12 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/design/app_back_button.dart';
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_spacing.dart';
 import '../../core/design/components.dart';
 import '../../core/error/failures.dart';
 import '../_shared/models.dart';
 import '../providers.dart';
+import '../content_player/content_player_screen.dart';
+import '../videos/content_library.dart';
+import '../../core/design/app_palette.dart';
 
 class SubjectDetailScreen extends ConsumerWidget {
   const SubjectDetailScreen({super.key, required this.subjectId});
@@ -35,10 +39,9 @@ class SubjectDetailScreen extends ConsumerWidget {
         : (resolvedName != null
             ? Subject(id: subjectId, name: resolvedName, classId: subjectId)
             : null);
-      final playbackClassId =
-        (subject?.classId?.trim().isNotEmpty ?? false)
-          ? subject!.classId!
-          : subjectId;
+    final playbackClassId = (subject?.classId?.trim().isNotEmpty ?? false)
+        ? subject!.classId!
+        : subjectId;
 
     return DefaultTabController(
       length: 3,
@@ -48,6 +51,9 @@ class SubjectDetailScreen extends ConsumerWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
           foregroundColor: Colors.white,
+          // The theme's iconTheme is near-black, which beats foregroundColor
+          // and made the default chevron invisible on this navy header.
+          leading: const AppBackButton(),
           systemOverlayStyle: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.light,
@@ -83,12 +89,14 @@ class _SubjectHero extends ConsumerWidget {
   final Subject? subject;
   final String subjectId;
 
-  Color _progressColor(int pct) {
-    if (pct >= 100) return const Color(0xFF14B8A6);
-    if (pct >= 75) return const Color(0xFF22C55E);
-    if (pct >= 50) return const Color(0xFFF59E0B);
-    if (pct >= 25) return const Color(0xFFF97316);
-    return const Color(0xFFEF4444);
+  Color _progressColor(BuildContext context, int pct) {
+    // One hue plus neutrals. See dashboard_screen._progressColor.
+    if (pct >= 75) return AppColors.success;
+    if (pct == 0) return context.palette.textHint;
+    // Navy is the light-mode "in progress" neutral. On a dark navy card it is
+    // invisible — this is what made "63% complete" unreadable — so dark uses
+    // the brand cyan for the same meaning.
+    return context.palette.isDark ? AppColors.accent : AppColors.primary;
   }
 
   @override
@@ -96,18 +104,21 @@ class _SubjectHero extends ConsumerWidget {
     final topPad = MediaQuery.of(context).padding.top + kToolbarHeight - 8;
     final name = subject?.name ?? 'Subject';
     final grade = subject?.grade;
-    // The detail endpoint sometimes omits `lessons_count`. Fall back to the
-    // length of the actual lessons list (which the screen already loads in
-    // _ContentTab) so the hero chip never reads "0 lessons" when the subject
-    // really does have lessons.
-    final lessonsList =
-        ref.watch(lessonsProvider(subjectId)).valueOrNull;
+    // The subject document often omits `lessons_count`, so fall back to the
+    // content actually available for this class.
+    //
+    // This used to count `/student/subjects/<id>/lessons`, which can never
+    // return anything (see BACKEND_FIXES.md item 1) — so the fallback was
+    // always zero and every subject open fired a request guaranteed to 403.
+    final subjectContent = ref
+            .watch(contentsProvider)
+            .valueOrNull
+            ?.where((c) => c.subjectId == subjectId)
+            .length ??
+        0;
     final declaredCount = subject?.lessonsCount ?? 0;
-    final lessons = declaredCount > 0
-        ? declaredCount
-        : (lessonsList?.length ?? 0);
-    final workload =
-        ref.watch(subjectWorkloadProvider).valueOrNull?[subjectId];
+    final lessons = declaredCount > 0 ? declaredCount : subjectContent;
+    final workload = ref.watch(subjectWorkloadProvider).valueOrNull?[subjectId];
     final grandTotal = workload?.grandTotal ?? 0;
     final done = workload == null
         ? 0
@@ -218,10 +229,9 @@ class _SubjectHero extends ConsumerWidget {
                     child: LinearProgressIndicator(
                       value: overall,
                       minHeight: 6,
-                      backgroundColor:
-                          Colors.white.withValues(alpha: 0.18),
-                      valueColor:
-                          AlwaysStoppedAnimation(_progressColor(overallPct)),
+                      backgroundColor: Colors.white.withValues(alpha: 0.18),
+                      valueColor: AlwaysStoppedAnimation(
+                          _progressColor(context, overallPct)),
                     ),
                   ),
                 ),
@@ -304,9 +314,7 @@ class _SubjectTabBar extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isDark
-            ? scheme.surface
-            : Colors.white,
+        color: isDark ? scheme.surface : Colors.white,
         borderRadius: BorderRadius.circular(999),
         border: isDark
             ? Border.all(color: scheme.outline.withValues(alpha: 0.35))
@@ -399,15 +407,17 @@ class _ContentTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subjectName = ref.watch(subjectNameProvider(subjectId));
-    final lessons = ref.watch(lessonsProvider(subjectId));
-    final contents = ref.watch(contentsProvider);
+    final sections = ref.watch(contentSectionsProvider);
+    final isEnrolled = ref.watch(isEnrolledInProvider(subjectId));
 
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: () async {
-        ref.invalidate(lessonsProvider(subjectId));
-        ref.invalidate(contentsProvider);
-        await ref.read(lessonsProvider(subjectId).future);
+        ref
+          ..invalidate(contentsProvider)
+          ..invalidate(studentClassesProvider)
+          ..invalidate(contentSectionsProvider);
+        await ref.read(contentSectionsProvider.future);
       },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(
@@ -417,96 +427,63 @@ class _ContentTab extends ConsumerWidget {
           AppSpacing.lg,
         ),
         children: [
-          // Lessons
-          lessons.when(
+          // The portal renders one card grid per class, split into named
+          // groups. `ContentSection.group` does the grouping; this widget
+          // only renders. Neither sorts — `/student/content` already arrives
+          // in `(class_id, group_title, order_index, created_at)` order.
+          sections.when(
             loading: () => Column(
               children: List.generate(
                 3,
                 (_) => const Padding(
                   padding: EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: SkeletonBox(height: 72, radius: AppRadius.lg),
+                  child: SkeletonBox(height: 180, radius: AppRadius.lg),
                 ),
               ),
             ),
             error: (e, _) => ErrorStateView(
               message: e is AppFailure ? e.message : e.toString(),
-              onRetry: () => ref.invalidate(lessonsProvider(subjectId)),
+              onRetry: () => ref.invalidate(contentSectionsProvider),
             ),
-            data: (items) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (items.isNotEmpty) ...[
-                  const SectionHeader(title: 'Lessons'),
-                  ...items.map(
-                    (l) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: _LessonTile(
-                        lesson: l,
-                        subjectId: playbackClassId,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                ],
-              ],
-            ),
-          ),
-          // Loose content
-          contents.when(
-            loading: () => Column(
-              children: List.generate(
-                3,
-                (_) => const Padding(
-                  padding: EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: SkeletonBox(height: 72, radius: AppRadius.lg),
-                ),
-              ),
-            ),
-            error: (e, _) => ErrorStateView(
-              message: e is AppFailure ? e.message : e.toString(),
-              onRetry: () => ref.invalidate(contentsProvider),
-            ),
-            data: (items) {
-              final filtered = items
-                  .where((c) =>
-                      c.subjectId == subjectId ||
-                      c.className == subjectName,)
+            data: (all) {
+              // Only this subject's class.
+              final mine = all
+                  .where(
+                    (s) =>
+                        s.classId == subjectId ||
+                        s.classId == playbackClassId ||
+                        s.className == subjectName,
+                  )
                   .toList();
-              if (filtered.isEmpty && lessons.valueOrNull?.isEmpty == true) {
-                return const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.xl),
-                  child: EmptyState(
-                    title: 'No content yet',
-                    message: 'Content for this subject will appear here.',
-                    icon: Icons.video_library_outlined,
-                  ),
-                );
-              }
-              if (filtered.isEmpty) return const SizedBox.shrink();
-              final lessonTitleById = <String, String>{
-                for (final l in (lessons.valueOrNull ?? const <Lesson>[]))
-                  l.id: l.title,
-              };
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SectionHeader(title: 'Library'),
-                  const SizedBox(height: AppSpacing.sm),
-                  ...filtered.map(
-                    (c) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: _ContentTile(
-                        content: c,
-                        subjectId: playbackClassId,
-                        displayTitle: _libraryTitle(
-                          c,
-                          lessonTitleById: lessonTitleById,
-                          subjectName: subjectName,
-                        ),
-                      ),
+              return ContentLibrary(
+                sections: mine,
+                // The screen header already shows the class name; repeating it
+                // directly below was pure duplication.
+                showClassHeader: false,
+                onOpen: (item) => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ContentPlayerScreen(
+                      contentId: item.id,
+                      subjectId: item.classId ?? playbackClassId,
+                      title: item.title,
                     ),
                   ),
-                ],
+                ),
+                // `/student/content` only ever returns content for classes the
+                // student is actually in, so an empty list here means one of
+                // two very different things. Say which.
+                emptyState: Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xl),
+                  child: isEnrolled
+                      ? const EmptyState(
+                          title: 'No videos yet',
+                          message:
+                              'Videos for this subject will appear here once '
+                              'your teacher publishes them.',
+                          icon: Icons.video_library_outlined,
+                        )
+                      : _NotEnrolledNotice(subjectId: subjectId),
+                ),
               );
             },
           ),
@@ -562,9 +539,11 @@ class _AssignmentsTab extends ConsumerWidget {
         ),
         data: (items) {
           final filtered = items
-              .where((a) =>
-                  a.subjectId == subjectId ||
-                  (subjectName != null && a.subjectName == subjectName),)
+              .where(
+                (a) =>
+                    a.subjectId == subjectId ||
+                    (subjectName != null && a.subjectName == subjectName),
+              )
               .toList();
           if (filtered.isEmpty) {
             return CenteredScroll(
@@ -580,8 +559,7 @@ class _AssignmentsTab extends ConsumerWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: filtered.length,
-            separatorBuilder: (_, __) =>
-                const SizedBox(height: AppSpacing.sm),
+            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (_, i) => _AssignmentTile(item: filtered[i]),
           );
         },
@@ -605,9 +583,12 @@ class _AssignmentTile extends StatelessWidget {
 
   String _statusLabel() {
     if (item.status == 'graded') {
-      return item.score != null && item.maxScore != null
-          ? 'GRADED · ${item.score}/${item.maxScore}'
-          : 'GRADED';
+      // No mark until the teacher releases it — an absent grade is not a zero
+      // (API_BRIEF §7).
+      final grade = item.visibleGrade;
+      final max = item.submission?.marking?.totalMax ?? item.maxScore;
+      if (item.awaitingRelease) return 'MARKED';
+      return grade != null && max != null ? 'GRADED · $grade/$max' : 'GRADED';
     }
     if (item.status == 'submitted') return 'SUBMITTED';
     if (item.isOverdue) return 'OVERDUE';
@@ -635,13 +616,23 @@ class _AssignmentTile extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Row(
               children: [
-                Icon(Icons.schedule_rounded,
-                    size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),),
+                Icon(
+                  Icons.schedule_rounded,
+                  size: 16,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.45),
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'Due ${DateFormat.yMMMd().add_jm().format(due)}',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65)),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.65),
+                  ),
                 ),
               ],
             ),
@@ -864,7 +855,7 @@ class _LessonTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.primarySurface,
+              color: context.palette.surfaceTinted,
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: Icon(
@@ -882,13 +873,122 @@ class _LessonTile extends StatelessWidget {
                 Text(lesson.title, style: theme.textTheme.titleSmall),
                 Text(
                   '${lesson.contents.length} item${lesson.contents.length == 1 ? '' : 's'}',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65)),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.65),
+                  ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.chevron_right_rounded, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)),
+          Icon(
+            Icons.chevron_right_rounded,
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when the API answers `403 not_enrolled` for a subject.
+///
+/// This is an expected state, not an error: the student is looking at a
+/// subject they have not joined. Offer the way forward rather than a retry
+/// button that will fail identically every time.
+class _NotEnrolledNotice extends ConsumerStatefulWidget {
+  const _NotEnrolledNotice({required this.subjectId});
+
+  final String subjectId;
+
+  @override
+  ConsumerState<_NotEnrolledNotice> createState() => _NotEnrolledNoticeState();
+}
+
+class _NotEnrolledNoticeState extends ConsumerState<_NotEnrolledNotice> {
+  bool _busy = false;
+  String? _result;
+
+  Future<void> _request() async {
+    setState(() {
+      _busy = true;
+      _result = null;
+    });
+    try {
+      await ref
+          .read(studentRepositoryProvider)
+          .requestEnrollment(widget.subjectId);
+      if (!mounted) return;
+      setState(() => _result = 'Request sent. Your teacher will review it.');
+      ref.invalidate(enrollmentsProvider);
+      ref.invalidate(enrolledSubjectsProvider);
+    } catch (e) {
+      if (!mounted) return;
+      // `already_pending` / `already_enrolled` are informative, not failures.
+      final msg = e is AppFailure ? e.message : 'Could not send the request.';
+      setState(() => _result = msg);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+      child: Column(
+        children: [
+          Icon(
+            Icons.lock_outline_rounded,
+            size: 40,
+            color: onSurface.withValues(alpha: 0.35),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'You are not enrolled in this subject',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Lessons and videos unlock once your teacher approves you.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: onSurface.withValues(alpha: 0.65),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          if (_result != null)
+            Text(
+              _result!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: onSurface.withValues(alpha: 0.8),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            FilledButton.icon(
+              onPressed: _busy ? null : _request,
+              icon: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.person_add_alt_1_rounded, size: 18),
+              label: const Text('Request enrollment'),
+            ),
         ],
       ),
     );

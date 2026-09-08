@@ -11,6 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   testWidgets('Login form shows validation errors when submitted empty',
       (tester) async {
+    // A phone-sized but tall viewport, so the entire login form is built and
+    // the submit button is reachable without scroll gymnastics.
+    tester.view.physicalSize = const Size(400, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
@@ -34,12 +40,19 @@ void main() {
     expect(container.read(authControllerProvider).status, AuthStatus.unknown);
     expect(container.read(kvCacheProvider), isA<KvCache>());
 
-    // Tap Sign In with empty fields.
-    await tester.tap(find.text('Sign In'));
+    // Tap submit with empty fields. The button sits below the fold on the
+    // default 800px test surface, hence the taller viewport set up above.
+    final submit = find.text('Sign in');
+    expect(submit, findsOneWidget);
+    await tester.tap(submit);
     await tester.pump();
 
-    expect(find.text('Email or mobile is required'), findsOneWidget);
-    expect(find.text('Password must be at least 6 characters'), findsOneWidget);
+    // Both fields fail validation, so the form never submits and the
+    // controller stays unauthenticated.
+    expect(find.text('Mobile is required'), findsOneWidget);
+    expect(find.text('Enter your password'), findsOneWidget);
+    expect(container.read(authControllerProvider).status, AuthStatus.unknown);
+    expect(container.read(authControllerProvider).loading, isFalse);
 
     // Drain pending animation timers before tear-down.
     await tester.pumpWidget(const SizedBox.shrink());

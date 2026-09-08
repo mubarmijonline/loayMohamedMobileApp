@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../design/app_colors.dart';
 import '../design/app_spacing.dart';
 import 'countries.dart';
+import '../../core/design/app_palette.dart';
 
 /// Reusable country-code + phone-number field rendered as a Row of two
 /// independent inputs: a tappable country picker on the left and a normal
@@ -44,8 +45,7 @@ class CountryPhoneField extends StatelessWidget {
         _CountryPickerButton(
           country: country,
           onPick: () async {
-            final picked =
-                await showCountryPicker(context, selected: country);
+            final picked = await showCountryPicker(context, selected: country);
             if (picked != null) onCountryChanged(picked);
           },
         ),
@@ -95,9 +95,9 @@ class _CountryPickerButton extends StatelessWidget {
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.palette.surface,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: context.palette.divider),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -114,7 +114,11 @@ class _CountryPickerButton extends StatelessWidget {
             ),
             const SizedBox(width: 2),
             Icon(Icons.arrow_drop_down_rounded,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65), size: 20),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.65),
+                size: 20),
           ],
         ),
       ),

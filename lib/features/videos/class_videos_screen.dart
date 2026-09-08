@@ -9,6 +9,7 @@ import '../../core/error/failures.dart';
 import '../_shared/models.dart';
 import '../content_player/secure_stream_player.dart';
 import '../providers.dart';
+import '../../core/design/app_palette.dart';
 
 /// Lists every Cloudflare Stream video assigned to a class, grouped by the
 /// lesson's `group_title`. Each group renders a horizontal carousel of
@@ -81,55 +82,54 @@ class _ClassVideosScreenState extends ConsumerState<ClassVideosScreen> {
   Widget build(BuildContext context) {
     final async = ref.watch(classVideosProvider(widget.classId));
     final content = async.when(
-        loading: () => ListView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          children: List.generate(
-            3,
-            (_) => const Padding(
-              padding: EdgeInsets.only(bottom: AppSpacing.md),
-              child: SkeletonBox(height: 180, radius: AppRadius.lg),
-            ),
+      loading: () => ListView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        children: List.generate(
+          3,
+          (_) => const Padding(
+            padding: EdgeInsets.only(bottom: AppSpacing.md),
+            child: SkeletonBox(height: 180, radius: AppRadius.lg),
           ),
         ),
-        error: (e, _) => ErrorStateView(
-          message: e is AppFailure ? e.message : e.toString(),
-          onRetry: () => ref.invalidate(classVideosProvider(widget.classId)),
-        ),
-        data: (data) {
-          if (data.groups.isEmpty) {
-            return const EmptyState(
-              title: 'No videos yet',
-              message:
-                  'Videos assigned to this class will appear here. Pull to refresh.',
-              icon: Icons.video_library_outlined,
-            );
-          }
-          _scrollToHighlightedGroup(data.groups);
-          return RefreshIndicator(
-            color: AppColors.primary,
-            onRefresh: () async {
-              ref.invalidate(classVideosProvider(widget.classId));
-              await ref.read(classVideosProvider(widget.classId).future);
-            },
-            child: ListView.separated(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              itemCount: data.groups.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: AppSpacing.lg),
-              itemBuilder: (_, i) {
-                final g = data.groups[i];
-                final key = _groupKeys.putIfAbsent(g.title, GlobalKey.new);
-                return _GroupSection(
-                  key: key,
-                  group: g,
-                  highlighted: _flashGroup == g.title,
-                  onPlay: (video) => _openPlayer(g, video),
-                );
-              },
-            ),
+      ),
+      error: (e, _) => ErrorStateView(
+        message: e is AppFailure ? e.message : e.toString(),
+        onRetry: () => ref.invalidate(classVideosProvider(widget.classId)),
+      ),
+      data: (data) {
+        if (data.groups.isEmpty) {
+          return const EmptyState(
+            title: 'No videos yet',
+            message:
+                'Videos assigned to this class will appear here. Pull to refresh.',
+            icon: Icons.video_library_outlined,
           );
-        },
+        }
+        _scrollToHighlightedGroup(data.groups);
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            ref.invalidate(classVideosProvider(widget.classId));
+            await ref.read(classVideosProvider(widget.classId).future);
+          },
+          child: ListView.separated(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            itemCount: data.groups.length,
+            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.lg),
+            itemBuilder: (_, i) {
+              final g = data.groups[i];
+              final key = _groupKeys.putIfAbsent(g.title, GlobalKey.new);
+              return _GroupSection(
+                key: key,
+                group: g,
+                highlighted: _flashGroup == g.title,
+                onPlay: (video) => _openPlayer(g, video),
+              );
+            },
+          ),
+        );
+      },
     );
 
     if (widget.embedded) return content;
@@ -148,10 +148,10 @@ class _ClassVideosScreenState extends ConsumerState<ClassVideosScreen> {
 
   void _openPlayer(VideoGroup group, VideoItem video) {
     final startIdx = group.videos.indexWhere((v) => v.id == video.id);
-    final upNext = startIdx < 0
-        ? const <VideoItem>[]
-        : group.videos.sublist(startIdx + 1);
-    Navigator.of(context).push(
+    final upNext =
+        startIdx < 0 ? const <VideoItem>[] : group.videos.sublist(startIdx + 1);
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => SecureStreamPlayer(
           video: video,
@@ -160,7 +160,8 @@ class _ClassVideosScreenState extends ConsumerState<ClassVideosScreen> {
         ),
         fullscreenDialog: true,
       ),
-    ).then((_) {
+    )
+        .then((_) {
       // Refresh progress / completion after the player closes.
       ref.invalidate(classVideosProvider(widget.classId));
     });
@@ -211,8 +212,8 @@ class _GroupSection extends StatelessWidget {
                     Text(
                       subtitle,
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -305,15 +306,15 @@ class _PartCard extends StatelessWidget {
                             imageUrl: video.thumbnailUrl!,
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
-                              color: AppColors.primarySurface,
+                              color: context.palette.surfaceTinted,
                             ),
                             errorWidget: (_, __, ___) => Container(
-                              color: AppColors.primarySurface,
+                              color: context.palette.surfaceTinted,
                               child: const Icon(Icons.videocam_rounded,
                                   color: Colors.white54),
                             ),
                           )
-                        : Container(color: AppColors.primarySurface),
+                        : Container(color: context.palette.surfaceTinted),
                   ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
@@ -375,8 +376,8 @@ class _PartCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: video.progress,
                       minHeight: 3,
-                      backgroundColor: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.08),
+                      backgroundColor:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.08),
                       color: video.completed
                           ? AppColors.success
                           : AppColors.primary,

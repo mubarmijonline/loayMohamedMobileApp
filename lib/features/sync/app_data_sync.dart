@@ -11,7 +11,8 @@ import '../parent/student_detail/providers/notifications_provider.dart'
     as parent_notifications;
 import '../parent/student_detail/providers/progress_provider.dart'
     as parent_progress;
-import '../parent/student_detail/providers/quizzes_provider.dart' as parent_quizzes;
+import '../parent/student_detail/providers/quizzes_provider.dart'
+    as parent_quizzes;
 import '../providers.dart';
 
 /// Centralized cache invalidation for cross-feature consistency.
@@ -53,7 +54,6 @@ class AppDataSync {
   void _refreshStudentData() {
     _ref.invalidate(dashboardProvider);
     _ref.invalidate(subjectsProvider);
-    _ref.invalidate(suggestedSubjectsProvider);
     _ref.invalidate(enrolledSubjectsProvider);
     _ref.invalidate(enrollmentsProvider);
     _ref.invalidate(assignmentsProvider(null));

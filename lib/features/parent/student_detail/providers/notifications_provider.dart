@@ -6,9 +6,8 @@ import '../../../../core/error/error_mapper.dart';
 import '../../../../core/providers.dart';
 import '../models/activity_notification.dart';
 
-final notificationsProvider =
-    FutureProvider.family.autoDispose<List<ActivityNotification>, String>(
-        (ref, studentId) async {
+final notificationsProvider = FutureProvider.family
+    .autoDispose<List<ActivityNotification>, String>((ref, studentId) async {
   final api = ref.read(apiClientProvider);
   final v1 = AppEnv.I.apiV1Prefix;
   try {
@@ -26,8 +25,7 @@ final notificationsProvider =
     final list = (data['notifications'] as List?) ?? const [];
     return list
         .whereType<Map>()
-        .map((m) =>
-            ActivityNotification.fromJson(Map<String, dynamic>.from(m)))
+        .map((m) => ActivityNotification.fromJson(Map<String, dynamic>.from(m)))
         .toList();
   } on DioException catch (e) {
     throw ErrorMapper.fromDio(e);

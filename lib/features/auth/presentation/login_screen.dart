@@ -3,13 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/assets.dart';
 import '../../../core/design/app_colors.dart';
+import '../../../core/design/app_theme.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/utils/countries.dart';
 import '../../../core/utils/country_phone_field.dart';
 import 'auth_controller.dart';
 import 'parent_otp_screen.dart';
-import 'social_auth_buttons.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +20,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 enum _LoginMode { phone, email }
+
 enum _RoleTab { student, parent }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
@@ -80,280 +82,351 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(authControllerProvider);
     final theme = Theme.of(context);
-    return Scaffold(
-      // Tap anywhere outside a text field to dismiss the keyboard. This is the
-      // most reliable way to dismiss the numeric keyboard on iOS where there is
-      // no native "Done" key for number inputs.
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light,
-        child: Stack(
-          children: [
-            Container(
-              height: 320,
-              decoration: const BoxDecoration(
-                  gradient: AppColors.authBackgroundGradient,),
-            ),
-            SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: AppSpacing.lg),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.lg,),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 64,
-                          height: 64,
-                          child: Image.asset(
-                            'assets/images/logo.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                                Icons.school_rounded,
-                                color: Colors.white,
-                                size: 48,),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Welcome back',
-                                style: theme.textTheme.headlineSmall
-                                    ?.copyWith(color: Colors.white),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _role == _RoleTab.parent
-                                    ? 'Parent portal'
-                                    : 'Sign in to continue learning',
-                                style: theme.textTheme.bodyMedium
-                                    ?.copyWith(color: Colors.white70),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg,
-                          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(AppRadius.xl),
-                          topRight: Radius.circular(AppRadius.xl),
+    // Auth screens are always rendered light.
+    //
+    // They are a branded surface: a navy header with the instructor portrait
+    // and a white form sheet. The sheet colour is painted directly, so under
+    // the dark theme the sheet stayed white while its text turned light —
+    // white on white. Rather than re-theming every element for a screen that
+    // is meant to look the same either way, the whole subtree is pinned to the
+    // light theme. The rest of the app still honours the user's choice.
+    return Theme(
+      data: AppTheme.light(),
+      child: Scaffold(
+        // Tap anywhere outside a text field to dismiss the keyboard. This is the
+        // most reliable way to dismiss the numeric keyboard on iOS where there is
+        // no native "Done" key for number inputs.
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle.light,
+            child: Stack(
+              children: [
+                // Brand header: the same portrait the website uses, so a
+                // student moving between the two sees one product. Bundled, so
+                // it is on screen in the first frame with no network.
+                SizedBox(
+                  height: 320,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.authBackgroundGradient,
                         ),
                       ),
-                      child: Form(
-                        key: _form,
-                        child: ListView(
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Image.asset(
+                            AppAssets.heroFor(MediaQuery.sizeOf(context).width),
+                            height: 268,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomCenter,
+                            filterQuality: FilterQuality.high,
+                            // A missing asset must not blank the header.
+                            errorBuilder: (_, __, ___) =>
+                                const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                      // JUSTIFIED GRADIENT: a readability scrim over a
+                      // photograph so the greeting stays legible, not brand
+                      // styling. Fades left-to-right so the portrait stays
+                      // visible on the right.
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              AppColors.primary.withValues(alpha: 0.95),
+                              AppColors.primary.withValues(alpha: 0.70),
+                              AppColors.primary.withValues(alpha: 0.20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSpacing.lg),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        child: Row(
                           children: [
-                            // ── Role toggle: Student / Parent ──────────
-                            _RoleToggle(
-                              role: _role,
-                              onChanged: (r) => setState(() => _role = r),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            // Social buttons + phone/email toggle only for students
-                            if (_role == _RoleTab.student) ...[
-                              const SocialAuthButtons(),
-                              const SizedBox(height: AppSpacing.lg),
-                              _ModeToggle(
-                                mode: _mode,
-                                onChanged: (m) => setState(() => _mode = m),
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
-                            ],
-                            // Phone field
-                            if (_role == _RoleTab.parent ||
-                                _mode == _LoginMode.phone)
-                              CountryPhoneField(
-                                country: _country,
-                                controller: _phone,
-                                onCountryChanged: (c) =>
-                                    setState(() => _country = c),
-                                label: 'Mobile number',
-                                textInputAction: TextInputAction.next,
-                              )
-                            else
-                              TextFormField(
-                                controller: _email,
-                                keyboardType: TextInputType.emailAddress,
-                                textInputAction: TextInputAction.next,
-                                decoration: const InputDecoration(
-                                  labelText: 'Email',
-                                  prefixIcon: Icon(Icons.email_outlined),
-                                ),
-                                validator: (v) {
-                                  final s = v?.trim() ?? '';
-                                  if (s.isEmpty) return 'Email is required';
-                                  if (!RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$')
-                                      .hasMatch(s)) {
-                                    return 'Enter a valid email';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            if (_role == _RoleTab.student) ...[
-                              const SizedBox(height: AppSpacing.md),
-                              TextFormField(
-                                controller: _password,
-                                obscureText: _obscure,
-                                textInputAction: TextInputAction.done,
-                                onFieldSubmitted: (_) => _submit(),
-                                decoration: InputDecoration(
-                                  labelText: 'Password',
-                                  prefixIcon: const Icon(Icons.lock_outline),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(_obscure
-                                        ? Icons.visibility
-                                        : Icons.visibility_off,),
-                                    onPressed: () =>
-                                        setState(() => _obscure = !_obscure),
-                                  ),
-                                ),
-                                validator: (v) => (v ?? '').length < 6
-                                    ? 'Enter your password'
-                                    : null,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: _remember,
-                                    onChanged: (v) =>
-                                        setState(() => _remember = v ?? true),
-                                  ),
-                                  const Text('Remember me'),
-                                ],
-                              ),
-                            ] else ...[
-                              const SizedBox(height: AppSpacing.md),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primarySurface,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.info_outline_rounded,
-                                        size: 18, color: AppColors.primary),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'We will send a verification code to this number if it is linked to a student.',
-                                        style: theme.textTheme.bodySmall,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: AppSpacing.md),
                             SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: state.loading ? null : _submit,
-                                icon: Icon(_role == _RoleTab.parent
-                                    ? Icons.sms_outlined
-                                    : Icons.login_rounded),
-                                label: state.loading
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2.4,),
-                                      )
-                                    : Text(_role == _RoleTab.parent
-                                        ? 'Send Verification Code'
-                                        : 'Sign in'),
+                              width: 64,
+                              height: 64,
+                              child: Image.asset(
+                                // Never an inline path — see AppAssets.
+                                AppAssets.logo,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.school_rounded,
+                                  color: Colors.white,
+                                  size: 48,
+                                ),
                               ),
                             ),
-                            if (state.error != null) ...[
-                              const SizedBox(height: AppSpacing.md),
-                              Text(
-                                state.error!.message,
-                                style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.error,),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                            const SizedBox(height: AppSpacing.lg),
-                            if (_role == _RoleTab.student)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text("Don't have an account?"),
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context)
-                                        .pushNamed('/register'),
-                                    child: const Text('Create one'),
+                                  Text(
+                                    'Welcome back',
+                                    style: theme.textTheme.headlineSmall
+                                        ?.copyWith(color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _role == _RoleTab.parent
+                                        ? 'Parent portal'
+                                        : 'Sign in to continue learning',
+                                    style: theme.textTheme.bodyMedium
+                                        ?.copyWith(color: Colors.white70),
                                   ),
                                 ],
                               ),
+                            ),
                           ],
                         ),
                       ),
-                    )
-                        .animate()
-                        .fadeIn(duration: 400.ms)
-                        .slideY(begin: 0.10),
-                  ),
-                ],
-              ),
-            ),
-            // Floating "Done" pill above the keyboard. Visible only while the
-            // keyboard is open. Lets the user dismiss the iOS dial-pad which
-            // otherwise has no return key.
-            if (MediaQuery.of(context).viewInsets.bottom > 0)
-              Positioned(
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 8,
-                child: Material(
-                  color: AppColors.primary,
-                  shape: const StadiumBorder(),
-                  elevation: 6,
-                  child: InkWell(
-                    customBorder: const StadiumBorder(),
-                    onTap: () => FocusScope.of(context).unfocus(),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 10,),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.keyboard_hide_rounded,
-                              color: Colors.white, size: 18,),
-                          SizedBox(width: 6),
-                          Text(
-                            'Done',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
+                      const SizedBox(height: AppSpacing.lg),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(AppRadius.xl),
+                              topRight: Radius.circular(AppRadius.xl),
                             ),
                           ),
-                        ],
+                          child: Form(
+                            key: _form,
+                            child: ListView(
+                              children: [
+                                // ── Role toggle: Student / Parent ──────────
+                                _RoleToggle(
+                                  role: _role,
+                                  onChanged: (r) => setState(() => _role = r),
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                                // Social buttons + phone/email toggle only for students
+                                if (_role == _RoleTab.student) ...[
+                                  const SizedBox(height: AppSpacing.lg),
+                                  _ModeToggle(
+                                    mode: _mode,
+                                    onChanged: (m) => setState(() => _mode = m),
+                                  ),
+                                  const SizedBox(height: AppSpacing.lg),
+                                ],
+                                // Phone field
+                                if (_role == _RoleTab.parent ||
+                                    _mode == _LoginMode.phone)
+                                  CountryPhoneField(
+                                    country: _country,
+                                    controller: _phone,
+                                    onCountryChanged: (c) =>
+                                        setState(() => _country = c),
+                                    label: 'Mobile number',
+                                    textInputAction: TextInputAction.next,
+                                  )
+                                else
+                                  TextFormField(
+                                    controller: _email,
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Email',
+                                      prefixIcon: Icon(Icons.email_outlined),
+                                    ),
+                                    validator: (v) {
+                                      final s = v?.trim() ?? '';
+                                      if (s.isEmpty) return 'Email is required';
+                                      if (!RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$')
+                                          .hasMatch(s)) {
+                                        return 'Enter a valid email';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                if (_role == _RoleTab.student) ...[
+                                  const SizedBox(height: AppSpacing.md),
+                                  TextFormField(
+                                    controller: _password,
+                                    obscureText: _obscure,
+                                    textInputAction: TextInputAction.done,
+                                    onFieldSubmitted: (_) => _submit(),
+                                    decoration: InputDecoration(
+                                      labelText: 'Password',
+                                      prefixIcon:
+                                          const Icon(Icons.lock_outline),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscure
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
+                                        ),
+                                        onPressed: () => setState(
+                                            () => _obscure = !_obscure),
+                                      ),
+                                    ),
+                                    validator: (v) => (v ?? '').length < 6
+                                        ? 'Enter your password'
+                                        : null,
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  Row(
+                                    children: [
+                                      Checkbox(
+                                        value: _remember,
+                                        onChanged: (v) => setState(
+                                            () => _remember = v ?? true),
+                                      ),
+                                      const Text('Remember me'),
+                                    ],
+                                  ),
+                                ] else ...[
+                                  const SizedBox(height: AppSpacing.md),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primarySurface,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.info_outline_rounded,
+                                            size: 18, color: AppColors.primary),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'We will send a verification code to this number if it is linked to a student.',
+                                            style: theme.textTheme.bodySmall,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: AppSpacing.md),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: state.loading ? null : _submit,
+                                    icon: Icon(_role == _RoleTab.parent
+                                        ? Icons.sms_outlined
+                                        : Icons.login_rounded),
+                                    label: state.loading
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.4,
+                                            ),
+                                          )
+                                        : Text(_role == _RoleTab.parent
+                                            ? 'Send Verification Code'
+                                            : 'Sign in'),
+                                  ),
+                                ),
+                                if (state.error != null) ...[
+                                  const SizedBox(height: AppSpacing.md),
+                                  Text(
+                                    state.error!.message,
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.error,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                                const SizedBox(height: AppSpacing.lg),
+                                if (_role == _RoleTab.student)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Text("Don't have an account?"),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context)
+                                            .pushNamed('/register'),
+                                        child: const Text('Create one'),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(duration: 400.ms)
+                            .slideY(begin: 0.10),
+                      ),
+                    ],
+                  ),
+                ),
+                // Floating "Done" pill above the keyboard. Visible only while the
+                // keyboard is open. Lets the user dismiss the iOS dial-pad which
+                // otherwise has no return key.
+                if (MediaQuery.of(context).viewInsets.bottom > 0)
+                  Positioned(
+                    right: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+                    child: Material(
+                      color: AppColors.primary,
+                      shape: const StadiumBorder(),
+                      elevation: 6,
+                      child: InkWell(
+                        customBorder: const StadiumBorder(),
+                        onTap: () => FocusScope.of(context).unfocus(),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 10,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.keyboard_hide_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Done',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
-      ),
       ),
     );
   }
@@ -391,11 +464,16 @@ class _ModeToggle extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon,
-                    size: 18,
-                    color: selected
-                        ? AppColors.primary
-                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),),
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected
+                      ? AppColors.primary
+                      : Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.65),
+                ),
                 const SizedBox(width: 8),
                 Text(
                   label,
@@ -403,7 +481,10 @@ class _ModeToggle extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: selected
                         ? AppColors.primary
-                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                        : Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.65),
                   ),
                 ),
               ],

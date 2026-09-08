@@ -2,11 +2,12 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/error_mapper.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../core/error/failures.dart';
 import '../../../core/providers.dart';
+import '../../notifications/push_service.dart';
 import '../../providers.dart' as student_providers;
 import '../data/auth_repository.dart';
-import '../data/social_auth_service.dart';
 import '../domain/student_user.dart';
 
 enum AuthStatus { unknown, unauthenticated, authenticated }
@@ -46,14 +47,13 @@ class AuthState extends Equatable {
 }
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(ref.read(apiClientProvider), ref.read(tokenStoreProvider)),
+  (ref) =>
+      AuthRepository(ref.read(apiClientProvider), ref.read(tokenStoreProvider)),
 );
 
-final socialAuthServiceProvider =
-    Provider<SocialAuthService>((ref) => SocialAuthService());
-
-final authControllerProvider =
-    StateNotifierProvider<AuthController, AuthState>((ref) => AuthController(ref));
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) => AuthController(ref),
+);
 
 class AuthController extends StateNotifier<AuthState> {
   AuthController(this._ref) : super(AuthState.initial);
@@ -81,11 +81,37 @@ class AuthController extends StateNotifier<AuthState> {
       ..invalidate(student_providers.contentResumeProvider);
   }
 
+  /// Resolves the startup auth state.
+  ///
+  /// **Must always leave [state] in a definite status.** The app shows the
+  /// splash for as long as the status is `unknown`, and this is called
+  /// fire-and-forget from `LoayMohamedApp.initState` — so anything that
+  /// escapes here strands the user on a spinner forever with no error and no
+  /// way out.
+  ///
+  /// That is exactly what used to happen: the inner catch below only handled
+  /// `AppFailure`, and a Keychain `PlatformException` from the token store
+  /// (iOS -34018, missing entitlement) sailed straight past it. The outer
+  /// catch is the backstop — signed out is recoverable, a frozen splash is
+  /// not.
   Future<void> bootstrap() async {
+    try {
+      await _bootstrap();
+    } catch (e, st) {
+      AppLogger.I.e('Auth bootstrap failed, falling back to login: $e\n$st');
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        error: ErrorMapper.fromObject(e, st),
+      );
+    }
+  }
+
+  Future<void> _bootstrap() async {
     final tokens = await _ref.read(tokenStoreProvider).read();
     final cache = _ref.read(kvCacheProvider);
     if (tokens == null) {
-      state = state.copyWith(status: AuthStatus.unauthenticated, clearUser: true);
+      state =
+          state.copyWith(status: AuthStatus.unauthenticated, clearUser: true);
       return;
     }
     final cached = cache.readJson<StudentUser>(
@@ -99,7 +125,10 @@ class AuthController extends StateNotifier<AuthState> {
       final user = await _ref.read(authRepositoryProvider).me();
       await cache.putJson(_kCachedUser, user.toJson());
       state = AuthState(status: AuthStatus.authenticated, user: user);
-    } on AppFailure catch (e) {
+    } catch (raw) {
+      // me() maps Dio errors to AppFailure, but a platform/plugin error can
+      // still surface here. Normalise so the branches below are total.
+      final e = ErrorMapper.fromObject(raw);
       // RoleFailure is no longer thrown by me() — keep UnauthorizedFailure
       // handling only so parents are not logged out on bootstrap.
       if (e is UnauthorizedFailure) {
@@ -109,13 +138,26 @@ class AuthController extends StateNotifier<AuthState> {
       } else if (cached == null) {
         state = AuthState(status: AuthStatus.unauthenticated, error: e);
       }
+      // If a cached user exists we deliberately stay authenticated and let the
+      // user work offline — but only because `state` was already set to
+      // authenticated above, so the status is never left `unknown`.
+      assert(
+        state.status != AuthStatus.unknown,
+        'bootstrap must resolve to a definite auth status',
+      );
     }
   }
 
-  Future<bool> login({required String identifier, required String password, bool rememberMe = true}) async {
+  Future<bool> login({
+    required String identifier,
+    required String password,
+    bool rememberMe = true,
+  }) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final user = await _ref.read(authRepositoryProvider).login(identifier: identifier, password: password);
+      final user = await _ref
+          .read(authRepositoryProvider)
+          .login(identifier: identifier, password: password);
       if (rememberMe) {
         await _ref.read(kvCacheProvider).putJson(_kCachedUser, user.toJson());
       }
@@ -123,7 +165,8 @@ class AuthController extends StateNotifier<AuthState> {
       state = AuthState(status: AuthStatus.authenticated, user: user);
       return true;
     } catch (e, st) {
-      state = state.copyWith(loading: false, error: ErrorMapper.fromObject(e, st));
+      state =
+          state.copyWith(loading: false, error: ErrorMapper.fromObject(e, st));
       return false;
     }
   }
@@ -160,7 +203,8 @@ class AuthController extends StateNotifier<AuthState> {
       state = AuthState(status: AuthStatus.authenticated, user: user);
       return true;
     } catch (e, st) {
-      state = state.copyWith(loading: false, error: ErrorMapper.fromObject(e, st));
+      state =
+          state.copyWith(loading: false, error: ErrorMapper.fromObject(e, st));
       return false;
     }
   }
@@ -179,25 +223,22 @@ class AuthController extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final user =
-          await _ref.read(authRepositoryProvider).createStudentUser(
-                name: name,
-                email: email,
-                phone: phone,
-                countryCode: countryCode,
-                parentPhone: parentPhone,
-                parentCountryCode: parentCountryCode,
-                school: school,
-                grade: grade,
-                password: password,
-              );
+      final user = await _ref.read(authRepositoryProvider).createStudentUser(
+            name: name,
+            email: email,
+            phone: phone,
+            countryCode: countryCode,
+            parentPhone: parentPhone,
+            parentCountryCode: parentCountryCode,
+            school: school,
+            grade: grade,
+            password: password,
+          );
       // If register returned tokens + user, we're already authenticated.
       final tokens = await _ref.read(tokenStoreProvider).read();
       if (tokens != null && user.id.isNotEmpty) {
         if (rememberMe) {
-          await _ref
-              .read(kvCacheProvider)
-              .putJson(_kCachedUser, user.toJson());
+          await _ref.read(kvCacheProvider).putJson(_kCachedUser, user.toJson());
         }
         _invalidateStudentData();
         state = AuthState(status: AuthStatus.authenticated, user: user);
@@ -211,75 +252,43 @@ class AuthController extends StateNotifier<AuthState> {
       );
     } catch (e, st) {
       state = state.copyWith(
-          loading: false, error: ErrorMapper.fromObject(e, st),);
+        loading: false,
+        error: ErrorMapper.fromObject(e, st),
+      );
       return false;
     }
   }
 
+  /// Signs the user out.
+  ///
+  /// ORDER MATTERS (API_BRIEF §4): the push device must be unregistered
+  /// **before** `/auth/logout`, because logout bumps `token_version` and kills
+  /// every token for this user — including the one `DELETE /devices/<id>`
+  /// needs. Unregister after logout and the call 401s, leaving the device
+  /// registered and still receiving push for an account that is signed out.
+  ///
+  /// Note also that logout is **global**: it signs the user out on every
+  /// device, not just this one. There is no per-device logout. Callers should
+  /// warn the user first (see [logoutWarning]).
   Future<void> logout() async {
     state = state.copyWith(loading: true);
+    // 1. Drop the push device while the access token is still valid.
+    await _ref.read(pushServiceProvider).unbind();
+    // 2. Revoke the session server-side.
     await _ref.read(authRepositoryProvider).logout();
-    await _ref.read(socialAuthServiceProvider).signOutAll();
+    // 3. Tear down local state.
     await _ref.read(kvCacheProvider).remove(_kCachedUser);
     _invalidateStudentData();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
-  Future<bool> _socialLogin(SocialCredential cred,
-      {bool rememberMe = true,}) async {
-    try {
-      final user = await _ref.read(authRepositoryProvider).socialLogin(
-            provider: cred.provider,
-            idToken: cred.idToken,
-            authorizationCode: cred.authorizationCode,
-            email: cred.email,
-            name: cred.name,
-            nonce: cred.nonce,
-          );
-      if (rememberMe) {
-        await _ref.read(kvCacheProvider).putJson(_kCachedUser, user.toJson());
-      }
-      _invalidateStudentData();
-      state = AuthState(status: AuthStatus.authenticated, user: user);
-      return true;
-    } catch (e, st) {
-      state = state.copyWith(
-        loading: false,
-        error: ErrorMapper.fromObject(e, st),
-      );
-      return false;
-    }
-  }
-
-  Future<bool> loginWithApple({bool rememberMe = true}) async {
-    state = state.copyWith(loading: true, clearError: true);
-    try {
-      final cred =
-          await _ref.read(socialAuthServiceProvider).signInWithApple();
-      return await _socialLogin(cred, rememberMe: rememberMe);
-    } catch (e, st) {
-      state = state.copyWith(
-        loading: false,
-        error: ErrorMapper.fromObject(e, st),
-      );
-      return false;
-    }
-  }
-
-  Future<bool> loginWithGoogle({bool rememberMe = true}) async {
-    state = state.copyWith(loading: true, clearError: true);
-    try {
-      final cred =
-          await _ref.read(socialAuthServiceProvider).signInWithGoogle();
-      return await _socialLogin(cred, rememberMe: rememberMe);
-    } catch (e, st) {
-      state = state.copyWith(
-        loading: false,
-        error: ErrorMapper.fromObject(e, st),
-      );
-      return false;
-    }
-  }
+  /// Copy for the confirm dialog shown before [logout].
+  ///
+  /// The backend has no per-device logout — signing out here ends the session
+  /// on every device the student is signed in on. A silent mass logout reads
+  /// as a bug, so this must be surfaced before the user commits.
+  static const logoutWarning =
+      'Signing out will sign you out on all your devices.';
 
   Future<void> forceLogout({String? reason, String? message}) async {
     await _ref.read(tokenStoreProvider).clear();
@@ -289,8 +298,7 @@ class AuthController extends StateNotifier<AuthState> {
     switch (reason) {
       case 'account_blocked':
         failure = AccountBlockedFailure(
-          message ??
-              'Your account has been blocked. Please contact support.',
+          message ?? 'Your account has been blocked. Please contact support.',
         );
         break;
       case 'session_revoked':
@@ -299,7 +307,20 @@ class AuthController extends StateNotifier<AuthState> {
         );
         break;
       default:
-        failure = UnauthorizedFailure(message ?? 'Session expired. Please sign in again.');
+        // When secure storage is unavailable the token only ever lived in
+        // memory, so the session ends at the next app restart no matter what
+        // the server says. "Session expired" is technically true but points
+        // the reader at the wrong cause — the build cannot persist a session
+        // at all. Say that instead; it is the difference between a five
+        // minute diagnosis and an afternoon.
+        final ephemeral = _ref.read(tokenStoreProvider).isEphemeral;
+        failure = UnauthorizedFailure(
+          message ??
+              (ephemeral
+                  ? 'Signed out because this build cannot store your session '
+                      'securely. Sign in again to continue.'
+                  : 'Session expired. Please sign in again.'),
+        );
     }
     state = AuthState(
       status: AuthStatus.unauthenticated,

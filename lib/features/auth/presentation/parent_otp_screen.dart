@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/app_back_button.dart';
+import '../../../core/assets.dart';
 import '../../../core/design/app_colors.dart';
+import '../../../core/design/app_theme.dart';
 import '../../../core/design/app_spacing.dart';
 import 'auth_controller.dart';
 
@@ -47,8 +50,7 @@ class _ParentOtpScreenState extends ConsumerState<ParentOtpScreen> {
     _resendIn = widget.resendAfter;
     _expiresIn = widget.expiresIn;
     _startTicker();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _focus.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
   }
 
   void _startTicker() {
@@ -113,176 +115,224 @@ class _ParentOtpScreenState extends ConsumerState<ParentOtpScreen> {
     final canResend = _resendIn == 0;
     final expired = _expiresIn == 0;
 
-    return Scaffold(
-      body: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: Stack(
-            children: [
-              Container(
-                height: 280,
-                decoration: const BoxDecoration(
-                  gradient: AppColors.authBackgroundGradient,
-                ),
-              ),
-              SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white),
-                        onPressed: () => Navigator.of(context).maybePop(),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg),
-                      child: Text(
-                        'Verify it\'s you',
-                        style: theme.textTheme.headlineSmall
-                            ?.copyWith(color: Colors.white),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg),
-                      child: Text(
-                        'We sent a 6-digit code to ${widget.phone}',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: Colors.white70),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg,
-                          AppSpacing.xl,
-                          AppSpacing.lg,
-                          AppSpacing.lg,
+    // Auth screens are always rendered light.
+    //
+    // They are a branded surface: a navy header with the instructor portrait
+    // and a white form sheet. The sheet colour is painted directly, so under
+    // the dark theme the sheet stayed white while its text turned light —
+    // white on white. Rather than re-theming every element for a screen that
+    // is meant to look the same either way, the whole subtree is pinned to the
+    // light theme. The rest of the app still honours the user's choice.
+    return Theme(
+      data: AppTheme.light(),
+      child: Scaffold(
+        body: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Stack(
+              children: [
+                // Brand header: the same portrait as the website and the
+                // login screen, so every entry point into the app looks like
+                // one product. Bundled, so it is present on the first frame.
+                SizedBox(
+                  height: 280,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.authBackgroundGradient,
                         ),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(AppRadius.xl),
-                            topRight: Radius.circular(AppRadius.xl),
+                      ),
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Image.asset(
+                            AppAssets.heroFor(MediaQuery.sizeOf(context).width),
+                            height: 234,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomCenter,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (_, __, ___) =>
+                                const SizedBox.shrink(),
                           ),
                         ),
-                        child: ListView(
-                          children: [
-                            TextField(
-                              controller: _code,
-                              focusNode: _focus,
-                              keyboardType: TextInputType.number,
-                              maxLength: 6,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 28,
-                                letterSpacing: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: const InputDecoration(
-                                counterText: '',
-                                hintText: '••••••',
-                                hintStyle: TextStyle(
+                      ),
+                      // JUSTIFIED GRADIENT: a readability scrim over a
+                      // photograph, not brand styling.
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              AppColors.primary.withValues(alpha: 0.95),
+                              AppColors.primary.withValues(alpha: 0.70),
+                              AppColors.primary.withValues(alpha: 0.20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm),
+                        child: const AppBackButton(),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg),
+                        child: Text(
+                          'Verify it\'s you',
+                          style: theme.textTheme.headlineSmall
+                              ?.copyWith(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg),
+                        child: Text(
+                          'We sent a 6-digit code to ${widget.phone}',
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: Colors.white70),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.xl,
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(AppRadius.xl),
+                              topRight: Radius.circular(AppRadius.xl),
+                            ),
+                          ),
+                          child: ListView(
+                            children: [
+                              TextField(
+                                controller: _code,
+                                focusNode: _focus,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 28,
                                   letterSpacing: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
-                              ),
-                              onChanged: (v) {
-                                if (v.length == 6 && !state.loading) {
-                                  _verify();
-                                }
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  expired
-                                      ? Icons.error_outline_rounded
-                                      : Icons.schedule_rounded,
-                                  size: 16,
-                                  color: expired
-                                      ? theme.colorScheme.error
-                                      : theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.6),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: const InputDecoration(
+                                  counterText: '',
+                                  hintText: '••••••',
+                                  hintStyle: TextStyle(
+                                    letterSpacing: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  expired
-                                      ? 'Code expired — request a new one'
-                                      : 'Code expires in ${_fmt(_expiresIn)}',
-                                  style: TextStyle(
+                                onChanged: (v) {
+                                  if (v.length == 6 && !state.loading) {
+                                    _verify();
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    expired
+                                        ? Icons.error_outline_rounded
+                                        : Icons.schedule_rounded,
+                                    size: 16,
                                     color: expired
                                         ? theme.colorScheme.error
                                         : theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.7),
+                                            .withValues(alpha: 0.6),
                                   ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    expired
+                                        ? 'Code expired — request a new one'
+                                        : 'Code expires in ${_fmt(_expiresIn)}',
+                                    style: TextStyle(
+                                      color: expired
+                                          ? theme.colorScheme.error
+                                          : theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.lg),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: state.loading ? null : _verify,
+                                  icon: const Icon(Icons.verified_rounded),
+                                  label: state.loading
+                                      ? const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2.4),
+                                        )
+                                      : const Text('Verify & Continue'),
+                                ),
+                              ),
+                              if (state.error != null) ...[
+                                const SizedBox(height: AppSpacing.md),
+                                Text(
+                                  state.error!.message,
+                                  style:
+                                      TextStyle(color: theme.colorScheme.error),
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: state.loading ? null : _verify,
-                                icon: const Icon(Icons.verified_rounded),
-                                label: state.loading
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2.4),
-                                      )
-                                    : const Text('Verify & Continue'),
-                              ),
-                            ),
-                            if (state.error != null) ...[
-                              const SizedBox(height: AppSpacing.md),
-                              Text(
-                                state.error!.message,
-                                style: TextStyle(
-                                    color: theme.colorScheme.error),
-                                textAlign: TextAlign.center,
+                              const SizedBox(height: AppSpacing.lg),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text("Didn't get the code?"),
+                                  TextButton(
+                                    onPressed: (canResend && !state.loading)
+                                        ? _resend
+                                        : null,
+                                    child: Text(
+                                      canResend
+                                          ? 'Resend'
+                                          : 'Resend in ${_fmt(_resendIn)}',
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
-                            const SizedBox(height: AppSpacing.lg),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text("Didn't get the code?"),
-                                TextButton(
-                                  onPressed:
-                                      (canResend && !state.loading) ? _resend : null,
-                                  child: Text(
-                                    canResend
-                                        ? 'Resend'
-                                        : 'Resend in ${_fmt(_resendIn)}',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
