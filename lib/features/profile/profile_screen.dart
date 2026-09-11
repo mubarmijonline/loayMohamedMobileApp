@@ -213,6 +213,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       },
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Apple 5.1.1(v) and Google Play both require deletion to be
+                  // reachable in-app for any account that can be created
+                  // in-app. A card of its own, so it is never mistaken for
+                  // Sign out.
+                  PremiumCard(
+                    padding: EdgeInsets.zero,
+                    child: _MenuTile(
+                      icon: Icons.delete_forever_rounded,
+                      color: AppColors.danger,
+                      title: 'Delete account',
+                      subtitle: 'Permanently remove your account and data',
+                      destructive: true,
+                      onTap: () => _deleteAccount(
+                        context,
+                        ref,
+                        hasPassword: user?.hasPassword ?? true,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   Center(
                     child: Text(
@@ -301,6 +321,266 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         SnackBar(content: Text(e is AppFailure ? e.message : e.toString())),
       );
     }
+  }
+
+  /// Permanent account deletion (Apple 5.1.1(v), Google Play policy).
+  ///
+  /// Re-authenticates with the password where the account has one. Legacy
+  /// accounts from the removed Google/Apple sign-in never set a password, so
+  /// they confirm by typing DELETE instead.
+  ///
+  /// Errors are shown inside the sheet rather than as a snackbar: a snackbar
+  /// lands behind the modal, and a student who mistyped their password needs
+  /// to see why nothing happened.
+  Future<void> _deleteAccount(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool hasPassword,
+  }) async {
+    final formKey = GlobalKey<FormState>();
+    final input = TextEditingController();
+    bool obscure = true;
+    bool busy = false;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheet) {
+            final theme = Theme.of(sheetCtx);
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                ),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: context.palette.divider,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppColors.danger.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.delete_forever_rounded,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Delete account',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  'This cannot be undone.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.danger,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'Your account and personal data will be permanently '
+                        'deleted, and you will be signed out on all your '
+                        'devices.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      if (hasPassword)
+                        TextFormField(
+                          controller: input,
+                          obscureText: obscure,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            helperText: 'Enter your password to confirm',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscure
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              onPressed: () =>
+                                  setSheet(() => obscure = !obscure),
+                            ),
+                          ),
+                          validator: (v) =>
+                              (v ?? '').isEmpty ? 'Enter your password' : null,
+                        )
+                      else
+                        TextFormField(
+                          controller: input,
+                          textInputAction: TextInputAction.done,
+                          textCapitalization: TextCapitalization.characters,
+                          autocorrect: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Type DELETE to confirm',
+                            prefixIcon: Icon(Icons.warning_amber_rounded),
+                          ),
+                          // Only a deliberate gesture: the request always sends
+                          // the literal the server expects, so case is moot.
+                          validator: (v) =>
+                              (v ?? '').trim().toUpperCase() == 'DELETE'
+                                  ? null
+                                  : 'Type DELETE to confirm',
+                        ),
+                      if (error != null) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          error!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.lg),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: busy
+                                  ? null
+                                  : () => Navigator.of(sheetCtx).pop(),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            flex: 2,
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.danger,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: busy
+                                  ? null
+                                  : () async {
+                                      if (!(formKey.currentState?.validate() ??
+                                          false)) {
+                                        return;
+                                      }
+                                      setSheet(() {
+                                        busy = true;
+                                        error = null;
+                                      });
+                                      try {
+                                        await ref
+                                            .read(
+                                              authControllerProvider.notifier,
+                                            )
+                                            .deleteAccount(
+                                              password: hasPassword
+                                                  ? input.text
+                                                  : null,
+                                              confirmPhrase:
+                                                  hasPassword ? null : 'DELETE',
+                                            );
+                                        // Signed out by now; the root swaps to
+                                        // the login screen, which carries the
+                                        // "account deleted" notice.
+                                        if (sheetCtx.mounted) {
+                                          Navigator.of(sheetCtx).maybePop();
+                                        }
+                                      } catch (e) {
+                                        if (!sheetCtx.mounted) return;
+                                        setSheet(() {
+                                          busy = false;
+                                          error = _deletionError(e);
+                                        });
+                                      }
+                                    },
+                              icon: busy
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.delete_forever_rounded,
+                                      size: 18,
+                                    ),
+                              label:
+                                  Text(busy ? 'Deleting…' : 'Delete account'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    input.dispose();
+  }
+
+  /// Copy for a refused deletion.
+  ///
+  /// The server's `error.message` is written for end users (API_BRIEF §1), so
+  /// it is shown as-is — except for a 404. Until the route in
+  /// docs/mobile/BACKEND_ACCOUNT_DELETION.md is deployed the server answers
+  /// with a bare "Not found", which would read as though the account were
+  /// already gone.
+  String _deletionError(Object e) {
+    if (e is NotFoundFailure) {
+      return 'Account deletion is not available yet. Please try again later '
+          'or contact support.';
+    }
+    if (e is AppFailure) return e.message;
+    return 'Something went wrong. Please try again.';
   }
 
   Future<void> _changePassword(BuildContext context, WidgetRef ref) async {

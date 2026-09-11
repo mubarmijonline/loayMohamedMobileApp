@@ -290,6 +290,27 @@ class AuthController extends StateNotifier<AuthState> {
   static const logoutWarning =
       'Signing out will sign you out on all your devices.';
 
+  /// Permanently deletes the signed-in account (Apple 5.1.1(v), Google Play's
+  /// account deletion policy).
+  ///
+  /// On refusal — usually a wrong password — the server's [AppFailure] is
+  /// rethrown and nothing local changes: the sheet shows the error and the
+  /// student stays signed in, push intact. Teardown starts only once the
+  /// server has confirmed.
+  ///
+  /// That is the reverse of [logout], deliberately. Logout can unregister the
+  /// push device first because it has no failure that matters; deletion does,
+  /// and unregistering before knowing would leave a student who mistyped their
+  /// password signed in but no longer notified. The server deletes device
+  /// registrations as part of the deletion instead.
+  Future<void> deleteAccount({String? password, String? confirmPhrase}) async {
+    await _ref
+        .read(authRepositoryProvider)
+        .deleteAccount(password: password, confirmPhrase: confirmPhrase);
+    await _ref.read(pushServiceProvider).clearLocal();
+    await forceLogout(reason: 'account_deleted');
+  }
+
   Future<void> forceLogout({String? reason, String? message}) async {
     await _ref.read(tokenStoreProvider).clear();
     await _ref.read(kvCacheProvider).remove(_kCachedUser);
@@ -299,6 +320,12 @@ class AuthController extends StateNotifier<AuthState> {
       case 'account_blocked':
         failure = AccountBlockedFailure(
           message ?? 'Your account has been blocked. Please contact support.',
+        );
+        break;
+      case 'account_deleted':
+        failure = UnauthorizedFailure(
+          message ?? 'Your account has been deleted.',
+          'account_deleted',
         );
         break;
       case 'session_revoked':

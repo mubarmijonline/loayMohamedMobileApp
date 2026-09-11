@@ -44,6 +44,7 @@ class StudentUser extends Equatable {
     this.avatarUrl,
     this.grade,
     this.linkedStudents = const [],
+    this.hasPassword = true,
   });
 
   final String id;
@@ -58,6 +59,12 @@ class StudentUser extends Equatable {
 
   /// Populated for parent accounts — list of students linked to this parent.
   final List<LinkedStudent> linkedStudents;
+
+  /// False only for legacy accounts from the removed Google/Apple sign-in,
+  /// which never set a password. Decides how account deletion confirms: a
+  /// password prompt for an account without one would make deletion
+  /// impossible, which is itself a store rejection.
+  final bool hasPassword;
 
   bool get isStudent => role.toLowerCase() == 'student';
   bool get isParent => role.toLowerCase() == 'parent';
@@ -107,6 +114,10 @@ class StudentUser extends Equatable {
               json['picture'])
           ?.toString(),
       grade: json['grade']?.toString(),
+      // Anything but an explicit false counts as having a password: asking
+      // for one is the safe default, and the server answers
+      // confirmation_required if it was wrong.
+      hasPassword: json['has_password'] != false,
       linkedStudents: (json['linked_students'] as List<dynamic>? ?? [])
           .map((e) =>
               LinkedStudent.fromJson(Map<String, dynamic>.from(e as Map)))
@@ -125,6 +136,7 @@ class StudentUser extends Equatable {
         'avatar_url': avatarUrl,
         'grade': grade,
         'linked_students': linkedStudents.map((s) => s.toJson()).toList(),
+        'has_password': hasPassword,
       };
 
   StudentUser copyWith({
@@ -147,6 +159,7 @@ class StudentUser extends Equatable {
         avatarUrl: avatarUrl ?? this.avatarUrl,
         grade: grade ?? this.grade,
         linkedStudents: linkedStudents ?? this.linkedStudents,
+        hasPassword: hasPassword,
       );
 
   @override
@@ -160,6 +173,7 @@ class StudentUser extends Equatable {
         school,
         avatarUrl,
         grade,
-        linkedStudents
+        linkedStudents,
+        hasPassword,
       ];
 }

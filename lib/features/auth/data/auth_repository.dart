@@ -207,6 +207,29 @@ class AuthRepository {
     }
   }
 
+  /// `POST /auth/account/delete` — permanently deletes the signed-in account.
+  ///
+  /// Not deployed yet; the contract is docs/mobile/BACKEND_ACCOUNT_DELETION.md.
+  /// Sends `password` for accounts that have one, and `confirm: "DELETE"` for
+  /// the legacy social-login accounts that never set a password.
+  ///
+  /// Clears tokens only after the server confirms, mirroring [logout]. On a
+  /// refusal — a wrong password, usually — it throws and changes nothing.
+  Future<void> deleteAccount({String? password, String? confirmPhrase}) async {
+    try {
+      await _client.dio.post<dynamic>(
+        '$_v1/auth/account/delete',
+        data: {
+          if (password != null) 'password': password,
+          if (confirmPhrase != null) 'confirm': confirmPhrase,
+        },
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+    await _tokens.clear();
+  }
+
   /// `PATCH /student/profile/phone` — `{ phone, country_code? }`.
   /// Changing the phone resets `phone_verified` to false server-side.
   Future<void> changePhone(String phone, {String? countryCode}) async {

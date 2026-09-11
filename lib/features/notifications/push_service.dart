@@ -146,6 +146,22 @@ class PushService {
     }
   }
 
+  /// Local-only teardown, for after the account has been deleted.
+  ///
+  /// [unbind] calls `DELETE /devices/<id>` first, which cannot work here: the
+  /// deletion has already revoked every token, so that call would 401. The
+  /// server removes the account's device registrations as part of deleting it
+  /// (docs/mobile/BACKEND_ACCOUNT_DELETION.md). All that is left on this side
+  /// is to stop OneSignal treating the device as that user's.
+  Future<void> clearLocal() async {
+    try {
+      await _ref.read(kvCacheProvider).remove(_kPlayerIdKey);
+      OneSignal.logout();
+    } catch (e) {
+      AppLogger.I.w('OneSignal local clear failed: $e');
+    }
+  }
+
   void _onForeground(OSNotification n) {
     final data = n.additionalData == null
         ? null
