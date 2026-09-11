@@ -500,6 +500,26 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
           _buildPlayer(
               embed: embed, watermark: watermark, resumeFrom: resumeFrom),
 
+          // Persistent fullscreen toggle, mirroring the back button.
+          //
+          // It used to live only in the auto-hiding control strip, so on a
+          // letterboxed lesson — most of them are 16:9 screen recordings shown
+          // in a portrait window — the video was a thin band with black above
+          // and below, and the one control that fixes that had already faded
+          // out. "No fullscreen" was really "the button is invisible".
+          Positioned(
+            top: 12,
+            right: 12,
+            child: SafeArea(
+              child: _RoundIcon(
+                icon: _fullscreen
+                    ? Icons.fullscreen_exit_rounded
+                    : Icons.fullscreen_rounded,
+                onTap: _fullscreen ? _exitFullscreen : _enterFullscreen,
+              ),
+            ),
+          ),
+
           // Persistent close/back button (never auto-hides) so the user can
           // always exit the player even when the chrome has faded out.
           Positioned(
