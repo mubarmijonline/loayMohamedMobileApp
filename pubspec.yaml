@@ -1,7 +1,7 @@
 name: loay_mohamed_elearning
 description: Loay Mohamed E-Learning — student mobile app.
 publish_to: "none"
-version: 1.0.5+7
+version: 1.0.5+8
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
