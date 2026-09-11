@@ -66,6 +66,14 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
   // widget has been unmounted (Riverpod throws if you do).
   StudentRepository? _repo;
 
+  /// Captured while mounted so dispose() can refresh providers without
+  /// `ref`, which Riverpod forbids once the widget is unmounting.
+  ProviderContainer? _container;
+
+  /// Set once the backend has marked this lesson seen, so the counters on
+  /// the screens behind this one are out of date.
+  bool _countersStale = false;
+
   // Local resume cache. The backend resume point isn't always reliable, so we
   // also persist the last position on-device keyed by user + content. This
   // guarantees resume works on the same device for the same user, while
@@ -131,6 +139,7 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
   Future<void> _markSeen() async {
     final StudentRepository repo = _repo ?? ref.read(studentRepositoryProvider);
     _repo ??= repo;
+    _container ??= ProviderScope.containerOf(context, listen: false);
     try {
       // A 1-second heartbeat is enough for the backend to flag this content
       // as watched. We don't actually care about minute totals.
@@ -140,13 +149,12 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
         currentPositionSeconds: 1,
         tabVisible: true,
       );
-      // Refresh providers so the "Videos seen" counters update everywhere.
-      if (mounted) {
-        ref.invalidate(contentsProvider);
-        ref.invalidate(contentProvider(widget.contentId));
-        ref.invalidate(dashboardProvider);
-        ref.invalidate(subjectWorkloadProvider);
-      }
+      // The "Videos seen" counters behind this screen are now stale. Refreshing
+      // them here fired six or so API calls at the moment the video was
+      // fetching its first bytes, competing with it on the student's
+      // connection — and nobody can see those counters until they leave the
+      // player. So the refresh waits for dispose().
+      _countersStale = true;
     } catch (_) {
       // Best-effort — next heartbeat tick will retry.
     }
@@ -159,6 +167,20 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
     _saveLocalResume(_positionSeconds);
     _sendHeartbeat(force: true);
     _heartbeatTimer?.cancel();
+    // Deferred from _markSeen: refresh the counters now the student is heading
+    // back to the screens that show them. Scheduled rather than inline,
+    // because providers must not be invalidated mid-teardown.
+    final container = _container;
+    final contentId = widget.contentId;
+    if (_countersStale && container != null) {
+      Future.microtask(() {
+        container
+          ..invalidate(contentsProvider)
+          ..invalidate(contentProvider(contentId))
+          ..invalidate(dashboardProvider)
+          ..invalidate(subjectWorkloadProvider);
+      });
+    }
     // The WebView is owned by SecureWebPlayer, which tears the page down in
     // its own dispose() — no audio survives the route pop.
     WidgetsBinding.instance.removeObserver(this);
@@ -411,6 +433,14 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
     if (dur != null && dur > 0) _durationSeconds = dur;
   }
 
+  /// The lesson's thumbnail, usually already fetched by the list the student
+  /// tapped from, shown while the video loads.
+  ImageProvider? _poster() {
+    final bytes =
+        ref.watch(contentThumbnailProvider(widget.contentId)).valueOrNull;
+    return bytes == null ? null : MemoryImage(bytes);
+  }
+
   Widget _buildPlayer({
     required ContentEmbed embed,
     required String watermark,
@@ -452,6 +482,9 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
         authHeader: _authHeader,
         screenGuard: guard,
         startAtSeconds: resumeFrom,
+        title: widget.title,
+        poster: _poster(),
+        onRetry: _reload,
         onPlayingChanged: _onPlayingChanged,
         onPositionChanged: _onPositionChanged,
         onEnded: () {
@@ -544,90 +577,89 @@ class _ContentPlayerScreenState extends ConsumerState<ContentPlayerScreen>
             ),
           ),
 
-          // Top + bottom chrome (auto-hides).
-          AnimatedOpacity(
-            opacity: _chromeVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 220),
-            child: IgnorePointer(
-              ignoring: !_chromeVisible,
-              child: Stack(
-                children: [
-                  // Top bar
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.black87, Colors.transparent],
-                        ),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
-                      child: Row(
-                        children: [
-                          // Spacer matching the persistent close button so the
-                          // title doesn't collide with it.
-                          const SizedBox(width: 44),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.title ?? 'Lesson',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+          // Title bar for the iframe providers only (auto-hides). The native
+          // player draws its own title, clock and controls; two layers there
+          // meant two clocks, and two sets of buttons hiding on separate
+          // timers.
+          if (embed.needsWebView)
+            AnimatedOpacity(
+              opacity: _chromeVisible ? 1 : 0,
+              duration: const Duration(milliseconds: 220),
+              child: IgnorePointer(
+                ignoring: !_chromeVisible,
+                child: Stack(
+                  children: [
+                    // Top bar
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.black87, Colors.transparent],
                           ),
-                          if (_positionSeconds > 0) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.45),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
+                        child: Row(
+                          children: [
+                            // Spacer matching the persistent close button so the
+                            // title doesn't collide with it.
+                            const SizedBox(width: 44),
+                            const SizedBox(width: 8),
+                            Expanded(
                               child: Text(
-                                _durationSeconds > 0
-                                    ? '${_fmt(_positionSeconds)} / ${_fmt(_durationSeconds)}'
-                                    : _fmt(_positionSeconds),
+                                widget.title ?? 'Lesson',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 11,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            if (_positionSeconds > 0) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.45),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  _durationSeconds > 0
+                                      ? '${_fmt(_positionSeconds)} / ${_fmt(_durationSeconds)}'
+                                      : _fmt(_positionSeconds),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            _RoundIcon(
+                              icon: Icons.refresh_rounded,
+                              onTap: _reload,
+                            ),
+                            // Room for the persistent fullscreen button, which
+                            // sits here permanently. A second one in this bar
+                            // used to overlap it.
+                            const SizedBox(width: 52),
                           ],
-                          _RoundIcon(
-                            icon: Icons.refresh_rounded,
-                            onTap: _reload,
-                          ),
-                          const SizedBox(width: 6),
-                          _RoundIcon(
-                            icon: _fullscreen
-                                ? Icons.fullscreen_exit_rounded
-                                : Icons.fullscreen_rounded,
-                            onTap: _fullscreen
-                                ? _exitFullscreen
-                                : _enterFullscreen,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
