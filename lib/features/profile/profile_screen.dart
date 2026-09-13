@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/app_colors.dart';
@@ -96,6 +97,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             expandedHeight: 280,
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
+            // The theme's AppBarTheme sets titleTextStyle and iconTheme
+            // explicitly, and both beat foregroundColor — so the title and
+            // the gear rendered near-black on this navy header. They are
+            // set here as well, with a status bar both platforms read.
+            titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+            iconTheme: const IconThemeData(color: Colors.white),
+            actionsIconTheme: const IconThemeData(color: Colors.white),
+            systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+            ),
             title: const Text('Profile'),
             actions: [
               IconButton(

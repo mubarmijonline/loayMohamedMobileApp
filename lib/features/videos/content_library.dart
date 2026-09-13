@@ -182,11 +182,12 @@ class _SectionState extends ConsumerState<_Section> {
                 onToggle: () => _toggleGroup(group.title),
               ),
             if (!_showGroupHeadings || !_isGroupCollapsed(group.title))
-              for (final item in group.items)
+              for (final (i, item) in group.items.indexed)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: _VideoRow(
                     item: item,
+                    position: i + 1,
                     onTap: () => widget.onOpen(item),
                     // The group name is already the heading above, so printing
                     // it on every row underneath was pure repetition — and it
@@ -266,12 +267,20 @@ class _GroupHeading extends StatelessWidget {
 class _VideoRow extends StatelessWidget {
   const _VideoRow({
     required this.item,
+    required this.position,
     required this.onTap,
     this.showGroup = true,
   });
 
   final ContentItem item;
   final VoidCallback onTap;
+
+  /// 1-based place within its group: what the badge shows.
+  ///
+  /// Not `order_index`. The backend numbers lessons across the whole class
+  /// from zero, so badges read #0, #1, #2 under one heading and #7, #8, #9
+  /// under the next. The portal numbers per group, and so does this.
+  final int position;
 
   /// Whether to repeat the group name in the meta line. False when a group
   /// heading is already shown above these rows.
@@ -303,18 +312,20 @@ class _VideoRow extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (item.orderIndex != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 1, right: 6),
-                            child: Text(
-                              '#${item.orderIndex}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1, right: 6),
+                          child: Text(
+                            '#$position',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              // Navy is invisible on a dark card.
+                              color: context.palette.isDark
+                                  ? AppColors.accent
+                                  : AppColors.primary,
                             ),
                           ),
+                        ),
                         Expanded(
                           child: Text(
                             item.title,

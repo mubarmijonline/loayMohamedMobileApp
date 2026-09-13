@@ -213,7 +213,10 @@ class _AssignmentDetailScreenState
                   if (a.dueAt != null)
                     _Pill(
                       icon: Icons.schedule_rounded,
-                      label: _dueLabel(a.dueAt!),
+                      label: _dueLabel(
+                        a.dueAt!,
+                        done: a.isSubmitted || a.status == 'late',
+                      ),
                       color: overdue
                           ? AppColors.danger
                           : Theme.of(context)
@@ -392,10 +395,14 @@ class _AssignmentDetailScreenState
     return _Pill(icon: icon, label: label, color: color, filled: true);
   }
 
-  String _dueLabel(DateTime due) {
+  /// [done] is true once the work is handed in or marked. The deadline is
+  /// still worth showing then, but "Overdue · 14 days" beside a "Graded" pill
+  /// reads as a contradiction — it only ever meant the date had passed.
+  String _dueLabel(DateTime due, {bool done = false}) {
     final now = DateTime.now();
     final diff = due.difference(now);
     final fmt = DateFormat.MMMd().add_jm().format(due);
+    if (done) return 'Due $fmt';
     if (diff.isNegative) {
       final d = -diff.inDays;
       if (d > 0) return 'Overdue · $d day${d == 1 ? '' : 's'}';

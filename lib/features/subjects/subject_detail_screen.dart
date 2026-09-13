@@ -57,6 +57,8 @@ class SubjectDetailScreen extends ConsumerWidget {
           systemOverlayStyle: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.light,
+            // iOS reads this one, and "dark" means light text.
+            statusBarBrightness: Brightness.dark,
           ),
         ),
         body: Column(
