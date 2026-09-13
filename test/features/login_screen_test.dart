@@ -40,6 +40,9 @@ void main() {
     expect(container.read(authControllerProvider).status, AuthStatus.unknown);
     expect(container.read(kvCacheProvider), isA<KvCache>());
 
+    // Both stores require the privacy policy to be reachable before sign-in.
+    expect(find.text('Privacy policy'), findsOneWidget);
+
     // Tap submit with empty fields. The button sits below the fold on the
     // default 800px test surface, hence the taller viewport set up above.
     final submit = find.text('Sign in');

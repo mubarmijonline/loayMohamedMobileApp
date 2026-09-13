@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_spacing.dart';
+import '../../core/utils/legal_links.dart';
 import '../auth/domain/student_user.dart';
 import '../auth/presentation/auth_controller.dart';
 import 'student_detail/parent_student_detail_screen.dart';
@@ -60,6 +61,15 @@ class ParentHomeScreen extends ConsumerWidget {
               ),
             ),
             actions: [
+              IconButton(
+                tooltip: 'Privacy policy',
+                icon: const Icon(
+                  Icons.privacy_tip_outlined,
+                  color: Colors.white,
+                ),
+                onPressed: () =>
+                    LegalLinks.open(context, LegalLinks.privacyPolicy),
+              ),
               IconButton(
                 tooltip: 'Sign out',
                 icon: const Icon(Icons.logout_rounded, color: Colors.white),

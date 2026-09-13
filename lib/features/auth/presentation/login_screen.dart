@@ -9,6 +9,7 @@ import '../../../core/design/app_theme.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/utils/countries.dart';
 import '../../../core/utils/country_phone_field.dart';
+import '../../../core/utils/legal_links.dart';
 import 'auth_controller.dart';
 import 'parent_otp_screen.dart';
 
@@ -371,6 +372,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                     ],
                                   ),
+                                // Both stores require the privacy policy to be
+                                // reachable in the app; here it is before
+                                // sign-in, for students and parents alike.
+                                Center(
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      textStyle: theme.textTheme.bodySmall,
+                                    ),
+                                    onPressed: () => LegalLinks.open(
+                                      context,
+                                      LegalLinks.privacyPolicy,
+                                    ),
+                                    child: const Text('Privacy policy'),
+                                  ),
+                                ),
                               ],
                             ),
                           ),

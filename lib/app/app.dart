@@ -134,7 +134,7 @@ class _LoayMohamedAppState extends ConsumerState<LoayMohamedApp> {
 
     return MaterialApp(
       navigatorKey: navKey,
-      title: 'Loay Mohamed E-Learning',
+      title: 'Loay Motawie',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

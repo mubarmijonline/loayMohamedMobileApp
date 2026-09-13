@@ -12,6 +12,7 @@ import '../../core/env/app_env.dart';
 import '../../core/error/failures.dart';
 import '../../core/utils/countries.dart';
 import '../../core/utils/country_phone_field.dart';
+import '../../core/utils/legal_links.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../../core/design/app_palette.dart';
 
@@ -188,6 +189,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
+                  const _SectionLabel('About'),
+                  const SizedBox(height: AppSpacing.sm),
+                  PremiumCard(
+                    padding: EdgeInsets.zero,
+                    child: _MenuTile(
+                      icon: Icons.privacy_tip_outlined,
+                      color: AppColors.secondary,
+                      title: 'Privacy policy',
+                      subtitle: 'What we collect and why',
+                      onTap: () =>
+                          LegalLinks.open(context, LegalLinks.privacyPolicy),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
                   PremiumCard(
                     padding: EdgeInsets.zero,
                     child: _MenuTile(
@@ -250,7 +265,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: AppSpacing.xl),
                   Center(
                     child: Text(
-                      'Loay Mohamed E-Learning',
+                      'Loay Motawie',
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: Theme.of(context)
                               .colorScheme

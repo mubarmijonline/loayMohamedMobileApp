@@ -410,7 +410,7 @@ class _SecureStreamPlayerState extends ConsumerState<SecureStreamPlayer>
   Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider).user;
     final identity = user?.email ?? user?.phone ?? user?.name ?? '';
-    final wm = identity.isEmpty ? 'Loay Mohamed' : 'Loay Mohamed · $identity';
+    final wm = identity.isEmpty ? 'Loay Motawie' : 'Loay Motawie · $identity';
 
     return PopScope(
       canPop: true,
