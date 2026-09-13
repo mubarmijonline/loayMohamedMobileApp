@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Runtime-requested on Android 13+; without it push is silently dropped. -->
@@ -6,8 +7,19 @@
     <!-- Android 14+ screenshot telemetry. FLAG_SECURE already blocks the
          capture, so this only tells us if that flag were ever lost. -->
     <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE"/>
+    <!-- open_filex declares these so it can open any media file on the device.
+         This app only opens files it downloaded into its own cache, which
+         needs no permission, and Google Play restricts READ_MEDIA_IMAGES and
+         READ_MEDIA_VIDEO to apps whose core purpose is media access. The
+         homework picker (file_picker) uses the system picker, which needs no
+         permission either. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+
     <application
-        android:label="LoayMohamed"
+        android:label="Loay Motawie"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="false"

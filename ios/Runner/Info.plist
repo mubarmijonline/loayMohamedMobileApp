@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>LoayMohamed</string>
+	<string>Loay Motawie</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,38 +24,21 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Used when you take a photo to attach to a submission.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Used to attach images to your assignment submissions.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Used to record audio answers.</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<!-- Export compliance. `false` declares the app uses only exempt
-	     encryption — standard HTTPS/TLS and Apple-provided crypto, which is
-	     what this app does (API over TLS, Keychain, SHA-256 for cert pinning).
-	     Without this key App Store Connect blocks every upload behind a
-	     "Missing Compliance" prompt.
-
-	     VERIFY THIS BEFORE SUBMITTING: it is a legal declaration. If you ever
-	     add custom/proprietary encryption, this must become true and you will
-	     need a CCATS/ERN. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<!-- App Transport Security: full strictness, no exceptions.
-
-	     There was previously an exception for the raw IP 136.114.32.40 allowing
-	     cleartext, TLS 1.0 and no forward secrecy. That host is not the
-	     production API (loaymotawie.com), and every host this app talks to —
-	     the API, Bunny, Cloudflare and Google Drive — is HTTPS with modern TLS,
-	     so no exception is needed. NSAllowsArbitraryLoads is deliberately
-	     absent; do not add it. -->
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Used when you take a photo to attach to a submission.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used to record audio answers.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to attach images to your assignment submissions.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
