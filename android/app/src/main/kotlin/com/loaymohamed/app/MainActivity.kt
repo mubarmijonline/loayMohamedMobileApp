@@ -1,4 +1,4 @@
-package com.example.loay_mohamed_elearning
+package com.loaymohamed.app
 
 import android.content.Context
 import android.hardware.display.DisplayManager
