@@ -13,10 +13,10 @@ Neither store will accept the app until these are done.
 
 | # | What | Who | Why it blocks |
 |---|---|---|---|
-| 1 | Publish the privacy policy at `https://loaymotawie.com/privacy` | You | Both consoles require a working URL before you can submit. Draft: `docs/store/PRIVACY_POLICY_DRAFT.md` |
-| 2 | Account deletion: the backend route, plus a page at `https://loaymotawie.com/delete-account` | Backend | Apple 5.1.1(v): the in-app button must actually work. Google: the Data safety form needs the web URL. Spec: `docs/mobile/BACKEND_ACCOUNT_DELETION.md` |
-| 3 | A test account for the reviewers | You | The app is login-only. Without credentials both stores reject it. See §1. |
-| 4 | Upload build **1.0.5 (10)** | Me, then you | 1.0.5 (9) still says "LoayMohamed" under the icon, and its Android version declares photo and video permissions that Google restricts |
+| 1 | Publish the privacy policy at `https://loaymotawie.com/privacy` | You and backend | Both consoles require a working URL before you can submit, and build 10 opens it from inside the app. Draft: `docs/store/PRIVACY_POLICY_DRAFT.md` |
+| 2 | Account deletion: the backend route, plus a page at `https://loaymotawie.com/delete-account` | Backend | Apple 5.1.1(v): the in-app button must actually work. Google: the Data safety form needs the web URL. Prompt: `docs/mobile/BACKEND_STORE_LAUNCH.md` |
+| 3 | A test account for the reviewers | You and backend | The app is login-only. Without credentials both stores reject it. See §1, and item 4 of the backend prompt. |
+| 4 | Upload build **1.0.5 (10)** | Me, then you | Build 9 still says "LoayMohamed" under the icon, has no privacy policy link inside the app, targets Android 15 when Play has required Android 16 (API 36) for new apps since 31 August 2026, and declares photo and video permissions that Google restricts |
 | 5 | Android upload key: create the keystore and fill in `android/key.properties` | You | Google Play refuses debug-signed builds |
 | 6 | A closed test with **12 or more testers for 14 days** | You | Required for personal Play accounts before Google grants production access |
 | 7 | A public support email address | You | Google shows it on the listing, and Apple needs a contact for App Review |
@@ -230,6 +230,7 @@ Where things are:
 - Lesson videos: Subjects, open a subject, Videos.
 - Homework and quizzes: the Tasks tab.
 - Account deletion: Profile, Delete account (confirms with the password).
+- Privacy policy: the link under Sign in, and Profile, Privacy policy.
 
 About the video player:
 - A watermark with the student's name, phone number and account ID is drawn
