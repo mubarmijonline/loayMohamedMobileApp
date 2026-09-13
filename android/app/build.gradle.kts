@@ -17,7 +17,10 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.loaymohamed.app"
-    compileSdk = flutter.compileSdkVersion
+    // Google Play has required new apps and updates to target Android 16
+    // (API 36) since 31 August 2026, and Flutter 3.32 still defaults to 35.
+    // compileSdk cannot be lower than targetSdk, so both are pinned.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -35,7 +38,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
