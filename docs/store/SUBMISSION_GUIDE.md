@@ -193,14 +193,16 @@ Expected rating: Everyone, PEGI 3, USK 0.
 
 Production stays locked until a closed test has run.
 
-1. **Create the upload key.** Do it once, and back the file up somewhere safe: losing it means the app can never be updated.
+1. **Create the upload key.** Do it once, and back up the file and its password somewhere safe. If the key is ever lost, Play can reset it, but only through a support request that takes days.
 
    ```bash
-   keytool -genkey -v -keystore ~/loay-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+   keytool -genkeypair -v -keystore ~/loay-upload.jks -storetype PKCS12 -keyalg RSA -keysize 2048 -validity 10000 -alias upload -dname "CN=Loay Motawie"
    ```
 
-   Copy `android/key.properties.example` to `android/key.properties` and fill it in. It is gitignored.
-2. **I build the bundle**: `flutter build appbundle --release` → `build/app/outputs/bundle/release/app-release.aab`.
+   This Mac has no system Java, so use Android Studio's copy in place of `keytool`: `"/Volumes/Crucial X9/Android Studio.app/Contents/jbr/Contents/Home/bin/keytool"`. It asks for one password (at least 6 characters), which protects both the keystore and the key.
+
+   Copy `android/key.properties.example` to `android/key.properties` and fill it in, with the full path in `storeFile` (Gradle does not expand `~`). It is gitignored.
+2. **I build the bundle**: `flutter build appbundle --release -t lib/main_prod.dart` → `build/app/outputs/bundle/release/app-release.aab`.
 3. **Testing → Closed testing → Create track.** Upload the `.aab`. When asked about signing, accept **Play App Signing**: Google keeps the app signing key, you keep the upload key.
 4. **Testers.** Add at least 12 Google accounts, as an email list or a Google Group. Send them the opt-in link; each must accept, then install from Play. Aim for 15 to 20, so a few dropping out does not break the count.
 5. **Wait 14 days.** The testers must stay opted in for 14 continuous days.

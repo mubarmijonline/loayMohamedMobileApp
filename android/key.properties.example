@@ -1,12 +1,17 @@
 # Copy to android/key.properties and fill in. That file is gitignored: it holds
 # the keystore password in plain text and must never be committed.
 #
-# Create the keystore first (once, and back it up somewhere safe — losing it
-# means you can never update the app on Play again):
+# Create the keystore first (once), and back up the file and its password
+# somewhere safe. If it is lost, Play can reset the upload key, but only
+# through a support request that takes days.
 #
-#   keytool -genkey -v -keystore ~/loay-upload.jks \
-#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#   keytool -genkeypair -v -keystore ~/loay-upload.jks -storetype PKCS12 \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload \
+#     -dname "CN=Loay Motawie"
 #
+# keytool asks for one password. With PKCS12 it protects both the keystore
+# and the key, so storePassword and keyPassword are the same. storeFile must
+# be a full path: Gradle does not expand ~.
 storePassword=
 keyPassword=
 keyAlias=upload
