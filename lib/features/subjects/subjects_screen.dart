@@ -277,6 +277,7 @@ class _SubjectCardState extends ConsumerState<_SubjectCard> {
       overallPct = ((subject.completionPercent ?? 0).clamp(0, 1) * 100).round();
     }
     final pct = overallPct;
+    final lessons = subject.lessonsIn(ref.watch(contentsProvider).valueOrNull);
 
     return PremiumCard(
       onTap: () => Navigator.of(context).pushNamed('/subjects/${subject.id}'),
@@ -372,7 +373,7 @@ class _SubjectCardState extends ConsumerState<_SubjectCard> {
             children: [
               _MiniStat(
                 icon: Icons.play_circle_outline_rounded,
-                value: '${subject.lessonsCount ?? 0}',
+                value: '$lessons',
                 label: 'Lessons',
               ),
               const SizedBox(width: 8),

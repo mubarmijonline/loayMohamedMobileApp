@@ -17,6 +17,26 @@ void main() {
     expect(s.enrollmentStatus, 'active');
   });
 
+  test('Subject.lessonsIn prefers lessons_count, else counts class content',
+      () {
+    ContentItem item(String id, String classId) =>
+        ContentItem(id: id, title: 't', type: 'video', subjectId: classId);
+    final contents = [item('1', 'c1'), item('2', 'c1'), item('3', 'c2')];
+
+    // Dashboard classes arrive without lessons_count.
+    const bare = Subject(id: 'c1', name: 'AS Maths');
+    expect(bare.lessonsIn(contents), 2);
+    expect(bare.lessonsIn(null), 0);
+
+    // A positive server count wins...
+    const counted = Subject(id: 'c1', name: 'AS Maths', lessonsCount: 9);
+    expect(counted.lessonsIn(contents), 9);
+
+    // ...but a zero is treated as missing, not as "no lessons".
+    const zero = Subject(id: 'c2', name: 'IGCSE', lessonsCount: 0);
+    expect(zero.lessonsIn(contents), 1);
+  });
+
   test('Assignment is overdue when due is past and not submitted', () {
     final a = Assignment.fromJson({
       'id': '1',

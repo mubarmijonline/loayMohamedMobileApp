@@ -68,6 +68,17 @@ class Subject extends Equatable {
     );
   }
 
+  /// Lessons to show for this class: `lessons_count` when the server sent a
+  /// positive one, otherwise this class's items in [contents].
+  ///
+  /// Dashboard `classes`, which feed the Subjects tab, usually omit the count,
+  /// so without the fallback every card there read "0 Lessons".
+  int lessonsIn(Iterable<ContentItem>? contents) {
+    final declared = lessonsCount ?? 0;
+    if (declared > 0) return declared;
+    return contents?.where((c) => c.subjectId == id).length ?? 0;
+  }
+
   @override
   List<Object?> get props => [
         id,
