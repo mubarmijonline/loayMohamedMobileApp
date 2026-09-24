@@ -221,12 +221,21 @@ First release: lesson videos, homework, quizzes and progress in one place.
 
 ## 4. Notes for the reviewers
 
-Paste into App Store Connect → App Review Information → Notes. The same text works as the Play Console App access instructions.
+Paste into App Store Connect → App Review Information → Notes. The same text
+works as the Play Console App access instructions.
 
 ```
+This build replaces the one reviewed on 18 September (1.0, build 11).
+
+What changed:
+- The "audio" entry is removed from UIBackgroundModes (guideline 2.5.4). The
+  app plays nothing in the background.
+- Working demo account credentials are in the fields above (guideline 2.1).
+  The previous submission carried setup instructions there by mistake.
+
 Loay Motawie is the app for students enrolled in Loay Motawie's classes.
 
-Sign in: Student tab, then Email (or Mobile), with the test account provided.
+Sign in: Student tab, then Email, with the account in the fields above.
 
 Where things are:
 - Lesson videos: Subjects, open a subject, Videos.
@@ -237,17 +246,44 @@ Where things are:
 About the video player:
 - A watermark with the student's name, phone number and account ID is drawn
   over lessons to discourage copying. It is intentional.
-- If screen recording or mirroring starts, playback pauses behind a notice,
-  to protect the teacher's lessons.
+- If screen recording or mirroring starts, playback pauses behind a notice, to
+  protect the teacher's lessons. The app is not malfunctioning.
 
-Parents sign in on the Parent tab with a one-time SMS code. That needs a phone
-number the school has linked to a student, so please use the student account.
+Parent sign-in: Parent tab, phone +1 202-555-0124, verification code ______.
 
 The app has no in-app purchases. Enrolment and payment are handled by the
 school outside the app.
 ```
 
-✏️ Check the last paragraph is true before pasting it.
+✏️ Keep the parent line only once the backend has `REVIEW_PARENT_PHONE` and
+`REVIEW_PARENT_OTP` set; otherwise replace it with "parents' numbers must be
+linked by the school, so please review with the student account".
+✏️ Check the payment paragraph is true before pasting it.
+
+You may also attach one file in App Review Information. It is optional, and
+not needed for these two issues.
+
+### Reply in Resolution Center
+
+Reply to Apple's rejection, then submit the new build.
+
+```
+Thank you for the review.
+
+2.5.4 — The "audio" entry is removed from UIBackgroundModes in build
+1.0.5 (12). The app has no background audio feature: lesson playback stops
+when the app leaves the foreground.
+
+2.1 — Apologies: the demo account fields held internal setup notes instead of
+credentials. Build 1.0.5 (12) is submitted with a working student account in
+App Review Information (user name app.review@loaymotawie.com). That account is
+enrolled in a class with lesson videos, homework, a quiz and notifications.
+
+This submission uses build 1.0.5 (12), which is the correct binary for this
+app.
+```
+
+✏️ Add the parent sign-in line to the reply too, if the backend has it set.
 
 ---
 
