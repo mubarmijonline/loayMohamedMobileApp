@@ -25,7 +25,11 @@ class AppTypography {
   /// also handles a mixed Arabic/Latin line correctly.
   static String get arabicFamily => GoogleFonts.notoKufiArabic().fontFamily!;
 
-  static List<String> get fallbacks => [arabicFamily];
+  /// Arabic first, then the platform emoji fonts, so an emoji a teacher types
+  /// into an announcement has somewhere to come from. Flag emoji are beyond
+  /// rescue on iOS 26 — the country picker spells the country out instead.
+  static List<String> get fallbacks =>
+      [arabicFamily, 'Apple Color Emoji', 'Noto Color Emoji'];
 
   /// A monospaced label style for kickers and eyebrows.
   static TextStyle kicker({Color? color}) => GoogleFonts.jetBrainsMono(

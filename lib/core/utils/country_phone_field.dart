@@ -102,7 +102,18 @@ class _CountryPickerButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(country.flag, style: const TextStyle(fontSize: 20)),
+            // Letters, not the flag emoji: iOS 26 draws flag emoji as empty
+            // boxes in this app's fonts, and some Android devices ship no
+            // flag glyphs either.
+            Text(
+              country.isoCode,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+                color: context.palette.textSecondary,
+              ),
+            ),
             const SizedBox(width: 6),
             Text(
               country.code,

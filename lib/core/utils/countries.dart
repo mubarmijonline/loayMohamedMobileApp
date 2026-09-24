@@ -6,6 +6,18 @@ class Country {
   final String code; // dial code with leading +
   final String flag;
   final String name;
+
+  /// `EG` for `🇪🇬`. A flag emoji is two regional-indicator letters, and iOS 26
+  /// draws those as empty boxes in this app's fonts, so the picker shows the
+  /// letters themselves. Empty when [flag] is not a two-letter flag.
+  String get isoCode {
+    const first = 0x1F1E6; // 🇦
+    final runes = flag.runes.toList();
+    if (runes.length != 2 || runes.any((r) => r < first || r > first + 25)) {
+      return '';
+    }
+    return runes.map((r) => String.fromCharCode(0x41 + r - first)).join();
+  }
 }
 
 const kCountries = <Country>[
