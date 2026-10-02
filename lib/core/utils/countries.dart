@@ -58,9 +58,29 @@ String normalizePhoneDigits(String raw) {
 }
 
 /// Build E.164 from a country code + local number.
+///
+/// A number that carries its own international prefix — `+1 202 555 0124` or
+/// `00 1 202 555 0124` — is sent as written and the picker is ignored.
+/// Prefixing the picker's code as well turned it into `+2012025550124`, which
+/// the server rejects as an invalid phone.
 String toE164(String countryCode, String localNumber) {
+  final raw = localNumber.trim().replaceAll(RegExp(r'[\s\-().]'), '');
+  if (raw.startsWith('+')) return '+${raw.replaceAll(RegExp(r'[^0-9]'), '')}';
+  if (raw.startsWith('00')) {
+    return '+${raw.substring(2).replaceAll(RegExp(r'[^0-9]'), '')}';
+  }
   final cc = countryCode.startsWith('+') ? countryCode : '+$countryCode';
   return '$cc${normalizePhoneDigits(localNumber)}';
+}
+
+/// The country whose dial code starts [digits] (an international number
+/// without its `+`), or null. No code in [kCountries] is a prefix of another,
+/// so the first match is the only one.
+Country? countryForDialDigits(String digits) {
+  for (final c in kCountries) {
+    if (digits.startsWith(c.code.substring(1))) return c;
+  }
+  return null;
 }
 
 /// Show a bottom-sheet country picker, returns the picked country.
@@ -81,7 +101,8 @@ Future<Country?> showCountryPicker(BuildContext context, {Country? selected}) {
           final items = kCountries.where((c) {
             if (query.isEmpty) return true;
             return c.name.toLowerCase().contains(query) ||
-                c.code.contains(query);
+                c.code.contains(query) ||
+                c.isoCode.toLowerCase() == query;
           }).toList();
           return SafeArea(
             top: false,
@@ -107,8 +128,19 @@ Future<Country?> showCountryPicker(BuildContext context, {Country? selected}) {
                         final c = items[i];
                         final isSelected = selected?.code == c.code;
                         return ListTile(
-                          leading: Text(c.flag,
-                              style: const TextStyle(fontSize: 22)),
+                          // Letters, as on the field itself: iOS 26 draws
+                          // flag emoji as empty boxes in this app's fonts.
+                          leading: SizedBox(
+                            width: 32,
+                            child: Text(
+                              c.isoCode,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
                           title: Text(c.name),
                           trailing: Text(
                             c.code,

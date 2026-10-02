@@ -59,8 +59,9 @@ class CountryPhoneField extends StatelessWidget {
             autofillHints: autofillHints,
             onFieldSubmitted: onSubmitted,
             inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(15),
+              InternationalNumberFormatter(onCountry: onCountryChanged),
+              // 15 digits is the E.164 maximum, plus a leading `+`.
+              LengthLimitingTextInputFormatter(16),
             ],
             decoration: InputDecoration(
               labelText: label,
@@ -135,4 +136,58 @@ class _CountryPickerButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Keeps the number field to digits, while letting a number arrive in
+/// international form.
+///
+/// A pasted `+1 202-555-0124` (or `00 1 …`) switches the picker to that
+/// country and leaves the national digits, `2025550124`. A `+` typed by hand
+/// stays, and [toE164] sends that number as written.
+///
+/// The field used to strip everything but digits, so the paste became
+/// `12025550124` under the default `+20`, and the server was sent
+/// `+2012025550124`: "Invalid phone number." App Review copies numbers from
+/// the review notes, so this is the first thing they would hit.
+@visibleForTesting
+class InternationalNumberFormatter extends TextInputFormatter {
+  InternationalNumberFormatter({required this.onCountry});
+
+  final ValueChanged<Country> onCountry;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.replaceAll(RegExp(r'[\s\-().]'), '');
+    final String? international = raw.startsWith('+')
+        ? raw.substring(1)
+        : raw.startsWith('00')
+            ? raw.substring(2)
+            : null;
+    if (international == null) {
+      // Plain digits: Flutter's own filter, which keeps the cursor in place.
+      return FilteringTextInputFormatter.digitsOnly
+          .formatEditUpdate(oldValue, newValue);
+    }
+
+    final digits = _digits(international);
+    // Several characters at once is a paste or autofill: hand the country to
+    // the picker. One at a time is typing, which keeps the `+`.
+    final pasted = newValue.text.length - oldValue.text.length > 1;
+    final country = pasted ? countryForDialDigits(digits) : null;
+    if (country == null) return _collapsed('+$digits');
+
+    // Not during the formatter's own pass: the callback rebuilds the parent.
+    Future.microtask(() => onCountry(country));
+    return _collapsed(digits.substring(country.code.length - 1));
+  }
+
+  static String _digits(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
+
+  static TextEditingValue _collapsed(String text) => TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
 }
