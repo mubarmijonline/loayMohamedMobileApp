@@ -312,6 +312,17 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> forceLogout({String? reason, String? message}) async {
+    // Already signed out. A request still in flight when the session ended —
+    // after Sign out, or after deleting the account — comes back 401 later,
+    // and the interceptor reports it here. Treating that as a fresh expiry
+    // re-ran the data reset below, whose reloads failed the same way: a loop,
+    // about once a second, that wrote "Session expired" over the sign-in
+    // screen and over the next real error on it ("Invalid phone number.").
+    // A session that has already ended only needs its tokens gone.
+    if (state.status == AuthStatus.unauthenticated) {
+      await _ref.read(tokenStoreProvider).clear();
+      return;
+    }
     await _ref.read(tokenStoreProvider).clear();
     await _ref.read(kvCacheProvider).remove(_kCachedUser);
     _invalidateStudentData();
