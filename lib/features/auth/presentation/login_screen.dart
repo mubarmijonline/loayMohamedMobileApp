@@ -404,7 +404,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 if (MediaQuery.of(context).viewInsets.bottom > 0)
                   Positioned(
                     right: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+                    // The Scaffold already lifts its body clear of the
+                    // keyboard, so this Stack ends at the keyboard's top
+                    // edge. Adding the inset again floated the pill a whole
+                    // keyboard higher — over the Parent tab, where a tap
+                    // meant for Parent hit Done instead.
+                    bottom: 8,
                     child: Material(
                       color: AppColors.primary,
                       shape: const StadiumBorder(),
