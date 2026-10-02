@@ -249,15 +249,19 @@ About the video player:
 - If screen recording or mirroring starts, playback pauses behind a notice, to
   protect the teacher's lessons. The app is not malfunctioning.
 
-Parent sign-in: Parent tab, phone +1 202-555-0124, verification code ______.
+Parent sign-in: Parent tab, mobile number +1 202 555 0124 (paste it as
+it is, or choose United States and type 2025550124), verification code
+______. Signing in as the parent ends that parent's session on any other
+device, so please use one device at a time for the parent role.
 
 The app has no in-app purchases. Enrolment and payment are handled by the
 school outside the app.
 ```
 
-✏️ Keep the parent line only once the backend has `REVIEW_PARENT_PHONE` and
-`REVIEW_PARENT_OTP` set; otherwise replace it with "parents' numbers must be
-linked by the school, so please review with the student account".
+✏️ Replace `______` with the six digits from your backend developer — the
+blank went to Apple once, and the review failed on it. Keep the parent
+lines only once `REVIEW_PARENT_PHONE` and `REVIEW_PARENT_OTP` are live and
+you have signed in with them yourself.
 ✏️ Check the payment paragraph is true before pasting it.
 
 You may also attach one file in App Review Information. It is optional, and
