@@ -221,21 +221,29 @@ First release: lesson videos, homework, quizzes and progress in one place.
 
 ## 4. Notes for the reviewers
 
-Paste into App Store Connect → App Review Information → Notes. The same text
-works as the Play Console App access instructions.
+Paste into App Store Connect → App Review Information → Notes. The two
+sign-in fields above the notes hold the **student** account; the parent
+account goes only here.
 
 ```
-This build replaces the one reviewed on 18 September (1.0, build 11).
+This submission uses build 1.0.5 (13). It replaces build 12, reviewed on
+29 September.
 
-What changed:
-- The "audio" entry is removed from UIBackgroundModes (guideline 2.5.4). The
-  app plays nothing in the background.
-- Working demo account credentials are in the fields above (guideline 2.1).
-  The previous submission carried setup instructions there by mistake.
+What changed since that review:
+- Parent demo credentials are now provided below (guideline 2.1). The
+  previous notes contained a blank placeholder instead of the code.
+- The phone field now also accepts a number pasted in international form.
 
-Loay Motawie is the app for students enrolled in Loay Motawie's classes.
+STUDENT ACCOUNT
+Student tab, then Email, with the user name and password in the fields
+above.
 
-Sign in: Student tab, then Email, with the account in the fields above.
+PARENT ACCOUNT
+Parent tab. Choose country code +1 (United States) and enter
+202 555 0124, or paste +1 202 555 0124. Tap Send Verification Code.
+No message is sent: enter the code XXXXXX on the next screen.
+
+Both accounts can be signed in on two devices at the same time.
 
 Where things are:
 - Lesson videos: Subjects, open a subject, Videos.
@@ -244,50 +252,36 @@ Where things are:
 - Privacy policy: the link under Sign in, and Profile, Privacy policy.
 
 About the video player:
-- A watermark with the student's name, phone number and account ID is drawn
-  over lessons to discourage copying. It is intentional.
-- If screen recording or mirroring starts, playback pauses behind a notice, to
-  protect the teacher's lessons. The app is not malfunctioning.
-
-Parent sign-in: Parent tab, mobile number +1 202 555 0124 (paste it as
-it is, or choose United States and type 2025550124), verification code
-______. Signing in as the parent ends that parent's session on any other
-device, so please use one device at a time for the parent role.
+- A watermark with the student's name, phone number and account ID is
+  drawn over lessons to discourage copying. It is intentional.
+- If screen recording or mirroring starts, playback pauses behind a
+  notice, to protect the teacher's lessons. The app is not malfunctioning.
 
 The app has no in-app purchases. Enrolment and payment are handled by the
 school outside the app.
 ```
 
-✏️ Replace `______` with the six digits from your backend developer — the
-blank went to Apple once, and the review failed on it. Keep the parent
-lines only once `REVIEW_PARENT_PHONE` and `REVIEW_PARENT_OTP` are live and
-you have signed in with them yourself.
+✏️ Replace `XXXXXX` with the six digits from your backend developer, in
+both places. A blank placeholder reached Apple once, and the review failed
+on it.
 ✏️ Check the payment paragraph is true before pasting it.
 
-You may also attach one file in App Review Information. It is optional, and
-not needed for these two issues.
+The app always sends the number in full international form
+(`+12025550124`), whether it is typed under the +1 picker or pasted;
+checked in the request log on 2026-10-02.
 
 ### Reply in Resolution Center
-
-Reply to Apple's rejection, then submit the new build.
 
 ```
 Thank you for the review.
 
-2.5.4 — The "audio" entry is removed from UIBackgroundModes in build
-1.0.5 (12). The app has no background audio feature: lesson playback stops
-when the app leaves the foreground.
+Guideline 2.1 - The parent demo credentials are now in the App Review
+notes: Parent tab, country code +1, number 202 555 0124, then the code
+XXXXXX on the next screen. No SMS is needed. Our previous notes contained
+a blank placeholder instead of the code, which is why sign-in failed.
 
-2.1 — Apologies: the demo account fields held internal setup notes instead of
-credentials. Build 1.0.5 (12) is submitted with a working student account in
-App Review Information (user name app.review@loaymotawie.com). That account is
-enrolled in a class with lesson videos, homework, a quiz and notifications.
-
-This submission uses build 1.0.5 (12), which is the correct binary for this
-app.
+We have resubmitted with build 1.0.5 (13).
 ```
-
-✏️ Add the parent sign-in line to the reply too, if the backend has it set.
 
 ---
 
