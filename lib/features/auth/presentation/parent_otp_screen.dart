@@ -44,6 +44,9 @@ class _ParentOtpScreenState extends ConsumerState<ParentOtpScreen> {
   int _resendIn = 0;
   int _expiresIn = 0;
 
+  /// Why the last tap on Verify did not send anything, shown under the button.
+  String? _codeHint;
+
   @override
   void initState() {
     super.initState();
@@ -73,9 +76,17 @@ class _ParentOtpScreenState extends ConsumerState<ParentOtpScreen> {
   }
 
   Future<void> _verify() async {
-    FocusScope.of(context).unfocus();
     final code = _code.text.trim();
-    if (code.length != 6) return;
+    if (code.length != 6) {
+      // App Review, 3 October 2026: with the box empty, Verify returned here
+      // without a word — and the placeholder dots looked like a code already
+      // filled in, so "the button is unresponsive". Say what is missing and
+      // put the cursor where it goes.
+      setState(() => _codeHint = 'Enter the 6-digit code.');
+      _focus.requestFocus();
+      return;
+    }
+    FocusScope.of(context).unfocus();
     final ok = await ref.read(authControllerProvider.notifier).verifyParentOtp(
           phone: widget.phone,
           code: code,
@@ -240,15 +251,23 @@ class _ParentOtpScreenState extends ConsumerState<ParentOtpScreen> {
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                 ],
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   counterText: '',
-                                  hintText: '••••••',
+                                  // Words, not six dots: the dots read as a
+                                  // code that was already filled in.
+                                  hintText: '6-digit code',
                                   hintStyle: TextStyle(
-                                    letterSpacing: 12,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 20,
+                                    letterSpacing: 0,
+                                    fontWeight: FontWeight.w500,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.35),
                                   ),
                                 ),
                                 onChanged: (v) {
+                                  if (_codeHint != null) {
+                                    setState(() => _codeHint = null);
+                                  }
                                   if (v.length == 6 && !state.loading) {
                                     _verify();
                                   }
@@ -298,10 +317,11 @@ class _ParentOtpScreenState extends ConsumerState<ParentOtpScreen> {
                                       : const Text('Verify & Continue'),
                                 ),
                               ),
-                              if (state.error != null) ...[
+                              if ((_codeHint ?? state.error?.message) !=
+                                  null) ...[
                                 const SizedBox(height: AppSpacing.md),
                                 Text(
-                                  state.error!.message,
+                                  _codeHint ?? state.error!.message,
                                   style:
                                       TextStyle(color: theme.colorScheme.error),
                                   textAlign: TextAlign.center,
