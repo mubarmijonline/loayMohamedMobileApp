@@ -226,13 +226,14 @@ sign-in fields above the notes hold the **student** account; the parent
 account goes only here.
 
 ```
-This submission uses build 1.0.5 (13). It replaces build 12, reviewed on
-29 September.
+This submission uses build 1.0.5 (14). It replaces build 13, reviewed on
+3 October.
 
-What changed since that review:
-- Parent demo credentials are now provided below (guideline 2.1). The
-  previous notes contained a blank placeholder instead of the code.
-- The phone field now also accepts a number pasted in international form.
+What changed since that review (guideline 2.1(a)):
+- On the parent code screen, the empty code box showed six placeholder dots
+  that looked like a code already entered, and Verify & Continue did
+  nothing while the box was empty. The box now reads "6-digit code", and
+  Verify with fewer than six digits says "Enter the 6-digit code."
 
 STUDENT ACCOUNT
 Student tab, then Email, with the user name and password in the fields
@@ -241,7 +242,8 @@ above.
 PARENT ACCOUNT
 Parent tab. Choose country code +1 (United States) and enter
 202 555 0124, or paste +1 202 555 0124. Tap Send Verification Code.
-No message is sent: enter the code XXXXXX on the next screen.
+No message is sent. On the next screen, type the code XXXXXX into the
+box, then tap Verify & Continue.
 
 Both accounts can be signed in on two devices at the same time.
 
@@ -273,14 +275,21 @@ checked in the request log on 2026-10-02.
 ### Reply in Resolution Center
 
 ```
-Thank you for the review.
+Thank you for the report.
 
-Guideline 2.1 - The parent demo credentials are now in the App Review
-notes: Parent tab, country code +1, number 202 555 0124, then the code
-XXXXXX on the next screen. No SMS is needed. Our previous notes contained
-a blank placeholder instead of the code, which is why sign-in failed.
+Guideline 2.1(a) - We reproduced this on an iPad Air 11-inch. The code box
+showed six placeholder dots, which looked like a code already entered, and
+tapping Verify & Continue while the box was empty did nothing. Build
+1.0.5 (14) labels the box "6-digit code", and if Verify & Continue is
+tapped before six digits are entered it says "Enter the 6-digit code." and
+places the cursor in the box.
 
-We have resubmitted with build 1.0.5 (13).
+To sign in as the parent: Parent tab, country code +1, number
+202 555 0124, tap Send Verification Code, then type the code XXXXXX into
+the box and tap Verify & Continue. No SMS is sent; the code is fixed for
+this number.
+
+We have resubmitted with build 1.0.5 (14).
 ```
 
 ---
